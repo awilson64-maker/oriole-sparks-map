@@ -55,6 +55,14 @@
       var GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
       var COUNTY_FIPS = "55039";
       var COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
+      var KNOWN_PLACE_RADIUS_METERS = 450;
+      var KNOWN_PLACES = [
+        // Add your own reliable landmarks here for kid-friendly labels.
+        // Example format:
+        // { name: "UW Oshkosh at Fond du Lac", lat: 43.7790, lng: -88.4380, radius: 500 },
+        // { name: "Lakeside Park", lat: 43.7920, lng: -88.4400, radius: 700 }
+      ];
+      var dynamicKnownPlaces = [];
       var submitLink = document.getElementById("submitLink");
       var statusEl = document.getElementById("status");
       var detailsCard = document.getElementById("detailsCard");
@@ -82,12 +90,13 @@
           if (coordinateMarker) coordinateMarker.setLatLng(latlng); else coordinateMarker = L.circleMarker(latlng, { radius:8, color:"#ef6c00", weight:3, fillColor:"#f4b400", fillOpacity:.85, interactive:false }).addTo(map);
           coordinateCard.innerHTML = "<h2>Find coordinates</h2><p>Looking up nearby place...</p><div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div>";
           try {
+            var curatedPlace = findNearestKnownPlace(latlng.lat, latlng.lng);
+            if (curatedPlace) {
+              renderCoordinateResult(curatedPlace, lat, lng, false);
+              return;
+            }
             var reverseData = await reverseLookup(latlng.lat, latlng.lng);
             var placeName = getBestPlaceName(reverseData);
-            if (isFallbackishPlaceName(placeName, reverseData)) {
-              var nearbyName = await findNearbyKnownPlace(latlng.lat, latlng.lng);
-              if (nearbyName) placeName = nearbyName;
-            }
             if (isWeakAreaLabel(placeName, reverseData)) {
               placeName = getRoadFallback(reverseData) || placeName;
             }
@@ -96,6 +105,18 @@
             console.error(error);
             renderCoordinateResult("Could not find a nearby place name", lat, lng, true);
           }
+        }
+
+        function findNearestKnownPlace(lat, lng) {
+          var allKnownPlaces = KNOWN_PLACES.concat(dynamicKnownPlaces);
+          var matches = allKnownPlaces.map(function (place) {
+            var distance = distanceMeters(lat, lng, place.lat, place.lng);
+            var radius = Number(place.radius || KNOWN_PLACE_RADIUS_METERS);
+            if (!Number.isFinite(distance) || distance > radius) return null;
+            return { name: place.name, distance: distance };
+          }).filter(Boolean);
+          matches.sort(function (a, b) { return a.distance - b.distance; });
+          return matches.length ? matches[0].name : "";
         }
 
         async function reverseLookup(lat, lng) {
@@ -153,16 +174,6 @@
 
         function firstDisplayPart(displayName) { return displayName ? String(displayName).split(",")[0].trim() : ""; }
 
-        function isFallbackishPlaceName(placeName, data) {
-          if (!placeName || isGenericRoadLabel(placeName)) return true;
-          if (isWeakAreaLabel(placeName, data)) return true;
-          var address = data && data.address ? data.address : {};
-          var lower = String(placeName).toLowerCase();
-          if (address.road && lower === String(address.road).toLowerCase()) return true;
-          if (address.highway && lower === String(address.highway).toLowerCase()) return true;
-          return false;
-        }
-
         function isWeakAreaLabel(placeName, data) {
           var address = data && data.address ? data.address : {};
           var lower = String(placeName || "").trim().toLowerCase();
@@ -175,44 +186,6 @@
         function getRoadFallback(data) {
           var address = data && data.address ? data.address : {};
           return cleanPlaceLabel(address.road || address.highway || "");
-        }
-
-        async function findNearbyKnownPlace(lat, lng) {
-          var offsets = [
-            [0, 0],
-            [0.00035, 0], [-0.00035, 0], [0, 0.00045], [0, -0.00045],
-            [0.00025, 0.00035], [0.00025, -0.00035], [-0.00025, 0.00035], [-0.00025, -0.00035]
-          ];
-          var candidates = [];
-          for (var i = 0; i < offsets.length; i++) {
-            try {
-              var probe = await reverseLookup(lat + offsets[i][0], lng + offsets[i][1]);
-              var label = getBestPlaceName(probe);
-              if (!label) continue;
-              if (isFallbackishPlaceName(label, probe)) continue;
-              candidates.push({
-                label: label,
-                score: scoreNearbyLabel(label, probe) - Math.abs(offsets[i][0]) * 100000 - Math.abs(offsets[i][1]) * 100000
-              });
-            } catch (error) {}
-          }
-          candidates.sort(function (a, b) { return b.score - a.score; });
-          return candidates.length ? candidates[0].label : "";
-        }
-
-        function scoreNearbyLabel(label, data) {
-          var address = data && data.address ? data.address : {};
-          var lower = String(label || "").toLowerCase();
-          if (address.school && lower === String(address.school).toLowerCase()) return 140;
-          if (address.park && lower === String(address.park).toLowerCase()) return 138;
-          if (address.library && lower === String(address.library).toLowerCase()) return 136;
-          if (address.playground && lower === String(address.playground).toLowerCase()) return 134;
-          if (address.university && lower === String(address.university).toLowerCase()) return 132;
-          if (address.college && lower === String(address.college).toLowerCase()) return 132;
-          if (address.hospital && lower === String(address.hospital).toLowerCase()) return 130;
-          if (address.museum && lower === String(address.museum).toLowerCase()) return 128;
-          if (address.stadium && lower === String(address.stadium).toLowerCase()) return 126;
-          return 100;
         }
 
         function renderCoordinateResult(placeName, lat, lng, lookupFailed) {
@@ -257,8 +230,15 @@
 
         function addMarkers(submissions) {
           markerLayer.clearLayers();
+          dynamicKnownPlaces = [];
           var approved = submissions.filter(function (item) { var approvalValue = String(item.approved || "").trim().toLowerCase(); var isApproved = ["yes","y","true","1"].indexOf(approvalValue) !== -1; var lat = Number(String(item.latitude || "").trim()); var lng = Number(String(item.longitude || "").trim()); return isApproved && Number.isFinite(lat) && Number.isFinite(lng); });
-          approved.forEach(function (item) { var lat = Number(String(item.latitude || "").trim()), lng = Number(String(item.longitude || "").trim()); var marker = L.marker([lat, lng]).addTo(markerLayer); marker.bindPopup("<strong>" + escapeHtml(item.placeName || "Favorite Place") + "</strong><br>Submitted by " + escapeHtml(item.firstName || "Student")); marker.on("click", function () { showDetails(item); }); });
+          approved.forEach(function (item) {
+            var lat = Number(String(item.latitude || "").trim()), lng = Number(String(item.longitude || "").trim());
+            var marker = L.marker([lat, lng]).addTo(markerLayer);
+            marker.bindPopup("<strong>" + escapeHtml(item.placeName || "Favorite Place") + "</strong><br>Submitted by " + escapeHtml(item.firstName || "Student"));
+            marker.on("click", function () { showDetails(item); });
+            if (item.placeName) dynamicKnownPlaces.push({ name: item.placeName, lat: lat, lng: lng, radius: 250 });
+          });
           setStatus(approved.length + " approved submission" + (approved.length === 1 ? "" : "s") + " on the map. " + submissions.length + " total row" + (submissions.length === 1 ? "" : "s") + " loaded from the Sheet.");
         }
 
@@ -266,6 +246,12 @@
           var safeFirstName = escapeHtml(item.firstName || "Student"), safePlaceName = escapeHtml(item.placeName || "Favorite Place"), safeDescription = escapeHtml(item.description || "No description provided.");
           var imageHtml = item.imageUrl ? "<img class=\"submission-image\" src=\"" + escapeAttribute(item.imageUrl) + "\" alt=\"Photo submitted for " + safePlaceName + "\" />" : "<p class=\"empty-message\">No photo has been added for this submission yet.</p>";
           detailsCard.innerHTML = "<h2>" + safePlaceName + "</h2><p><strong>Submitted by:</strong> " + safeFirstName + "</p><p>" + safeDescription + "</p>" + imageHtml;
+        }
+
+        function distanceMeters(lat1, lng1, lat2, lng2) {
+          var R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+          var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
         function parseCsv(csvText) {
