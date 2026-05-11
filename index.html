@@ -304,6 +304,50 @@
           var lat = latlng.lat.toFixed(6);
           var lng = latlng.lng.toFixed(6);
 
+          coordinateCard.innerHTML =
+  "<h2>Find coordinates</h2>" +
+  "<p>Looking up nearby place...</p>";
+
+fetch(
+  "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" +
+  lat +
+  "&lon=" +
+  lng
+)
+.then(function(response) {
+  return response.json();
+})
+.then(function(data) {
+
+  var placeName = "Unknown location";
+
+  if (data.name) {
+    placeName = data.name;
+  } else if (data.display_name) {
+    placeName = data.display_name.split(",").slice(0, 3).join(",");
+  }
+
+  coordinateCard.innerHTML =
+    "<h2>Find coordinates</h2>" +
+    "<p><strong>Nearby place:</strong> " + escapeHtml(placeName) + "</p>" +
+    "<div style='font-family:monospace;background:white;padding:10px;border-radius:8px;border:1px solid #ccc;display:inline-block'>" +
+    "Latitude: " + escapeHtml(lat) +
+    "<br>Longitude: " + escapeHtml(lng) +
+    "</div>";
+
+})
+.catch(function(error) {
+
+  coordinateCard.innerHTML =
+    "<h2>Find coordinates</h2>" +
+    "<p>Could not find a nearby place name.</p>" +
+    "<div style='font-family:monospace;background:white;padding:10px;border-radius:8px;border:1px solid #ccc;display:inline-block'>" +
+    "Latitude: " + escapeHtml(lat) +
+    "<br>Longitude: " + escapeHtml(lng) +
+    "</div>";
+
+});
+
           if (coordinateMarker) {
             coordinateMarker.setLatLng(latlng);
           } else {
