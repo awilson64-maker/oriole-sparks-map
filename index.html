@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Oriole Sparks Favorite Places Map</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     :root {
@@ -216,6 +216,7 @@
     const detailsCard = document.getElementById("detailsCard");
 
     submitLink.href = GOOGLE_FORM_URL;
+    statusEl.textContent = "JavaScript started. Loading map library...";
 
     function setStatus(message) {
       statusEl.textContent = message;
@@ -230,6 +231,12 @@
       console.error("Promise error:", event.reason);
       setStatus("Data loading error. Open the browser console for details.");
     });
+
+    if (typeof L === "undefined") {
+      throw new Error("Leaflet map library did not load. Try refreshing or check internet/CDN access.");
+    }
+
+    statusEl.textContent = "Map library loaded. Building map...";
 
     const fdlBounds = L.latLngBounds([43.49, -88.90], [43.98, -88.14]);
 
@@ -450,6 +457,7 @@
     }
 
     setTimeout(() => map.invalidateSize(), 250);
+    statusEl.textContent = "Map built. Loading county boundary and Sheet data...";
     loadCountyBoundary();
     loadSubmissions();
   </script>
