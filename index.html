@@ -128,47 +128,6 @@
       background: #ddd;
     }
 
-    .coordinate-card {
-      margin-top: 1rem;
-      background: #fffaf0;
-      border: 1px solid var(--border);
-      border-left: 6px solid var(--spark-orange);
-      border-radius: 14px;
-      padding: 1rem;
-      box-shadow: 0 4px 16px var(--shadow);
-      min-height: 110px;
-    }
-
-    .coordinate-card h2 {
-      margin: 0 0 0.5rem;
-      color: var(--spark-orange);
-    }
-
-    .coordinate-box {
-      font-family: Consolas, Monaco, monospace;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.6rem;
-      display: inline-block;
-      margin: 0.35rem 0;
-      line-height: 1.45;
-    }
-
-    .small-button {
-      display: inline-block;
-      margin-top: 0.35rem;
-      background: var(--spark-green);
-      color: white;
-      padding: 0.45rem 0.7rem;
-      border-radius: 8px;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .small-button:hover { background: #1f5f25; }
-
     .details-card {
       margin-top: 1rem;
       background: var(--card);
@@ -206,6 +165,7 @@
     }
   </style>
 </head>
+
 <body>
   <header>
     <div class="branding">
@@ -228,11 +188,6 @@
 
     <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
 
-    <section class="coordinate-card" id="coordinateCard">
-      <h2>Find coordinates</h2>
-      <p>Click anywhere on the map to get the latitude and longitude for that spot.</p>
-    </section>
-
     <section class="details-card" id="detailsCard">
       <h2>Click a dot on the map</h2>
       <p class="empty-message">When you click a student submission, the photo and details will appear here.</p>
@@ -243,7 +198,7 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      var GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdLCLZdq1ALGVppr9H455-EBvM9QtIM-OkLpKju2TJVEbb9Ig/viewform?usp=publish-editor";
+      var GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdLCLZdq1ALGVppr9H455-EBvM9QtIM-OkLpKju2TJVEbb9Ig/viewform?usp=sharing&ouid=112412639050177212790";
       var GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
       var COUNTY_FIPS = "55039";
       var COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
@@ -251,7 +206,16 @@
       var submitLink = document.getElementById("submitLink");
       var statusEl = document.getElementById("status");
       var detailsCard = document.getElementById("detailsCard");
-      var coordinateCard = document.getElementById("coordinateCard");
+      var coordinateCard = document.createElement("section");
+coordinateCard.className = "details-card";
+coordinateCard.innerHTML =
+  "<h2>Find coordinates</h2>" +
+  "<p class='empty-message'>Click anywhere on the map to get latitude and longitude.</p>";
+
+document.querySelector("main").insertBefore(
+  coordinateCard,
+  detailsCard
+);
 
       function setStatus(message) {
         statusEl.textContent = message;
@@ -286,9 +250,9 @@
         var markerLayer = L.layerGroup().addTo(map);
         var coordinateMarker = null;
 
-        map.on("click", function (event) {
-          showCoordinates(event.latlng);
-        });
+map.on("click", function (event) {
+  showCoordinates(event.latlng);
+});
 
         setTimeout(function () { map.invalidateSize(); }, 250);
 
@@ -296,41 +260,29 @@
         loadSubmissions();
 
         function showCoordinates(latlng) {
-          var lat = latlng.lat.toFixed(6);
-          var lng = latlng.lng.toFixed(6);
+  var lat = latlng.lat.toFixed(6);
+  var lng = latlng.lng.toFixed(6);
 
-          if (coordinateMarker) {
-            coordinateMarker.setLatLng(latlng);
-          } else {
-            coordinateMarker = L.circleMarker(latlng, {
-              radius: 8,
-              color: "#ef6c00",
-              weight: 3,
-              fillColor: "#f4b400",
-              fillOpacity: 0.85
-            }).addTo(map);
-          }
+  if (coordinateMarker) {
+    coordinateMarker.setLatLng(latlng);
+  } else {
+    coordinateMarker = L.circleMarker(latlng, {
+      radius: 8,
+      color: "#ef6c00",
+      weight: 3,
+      fillColor: "#f4b400",
+      fillOpacity: 0.85
+    }).addTo(map);
+  }
 
-          coordinateCard.innerHTML =
-            "<h2>Find coordinates</h2>" +
-            "<p>Use these numbers in the Google Form for this spot:</p>" +
-            "<div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div><br>" +
-            "<button class=\"small-button\" id=\"copyCoordinatesButton\">Copy coordinates</button>" +
-            "<p class=\"empty-message\">Tip: paste the first number into Latitude and the second number into Longitude.</p>";
-
-          var copyButton = document.getElementById("copyCoordinatesButton");
-          if (copyButton) {
-            copyButton.addEventListener("click", function () {
-              var text = lat + ", " + lng;
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text);
-              }
-              copyButton.textContent = "Copied";
-              setTimeout(function () { copyButton.textContent = "Copy coordinates"; }, 1200);
-            });
-          }
-        }
-
+  coordinateCard.innerHTML =
+    "<h2>Find coordinates</h2>" +
+    "<p>Use these in the Google Form:</p>" +
+    "<div style='font-family:monospace;background:white;padding:10px;border-radius:8px;border:1px solid #ccc;display:inline-block'>" +
+    "Latitude: " + escapeHtml(lat) +
+    "<br>Longitude: " + escapeHtml(lng) +
+    "</div>";
+}
         async function loadCountyBoundary() {
           try {
             var response = await fetch(COUNTY_GEOJSON_URL);
@@ -468,12 +420,8 @@
             } else if (char === ',' && !insideQuotes) {
               currentRow.push(currentCell);
               currentCell = "";
-            } else if ((char === "
-" || char === "
-") && !insideQuotes) {
-              if (char === "
-" && nextChar === "
-") i++;
+            } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+              if (char === "\r" && nextChar === "\n") i++;
               currentRow.push(currentCell);
               rows.push(currentRow);
               currentRow = [];
@@ -490,7 +438,7 @@
 
           var headerRow = rows.shift() || [];
           var headers = headerRow.map(function (header) {
-            return String(header || "").replace(/^﻿/, "").trim();
+            return String(header || "").replace(/^\uFEFF/, "").trim();
           });
 
           return rows.filter(function (row) {
