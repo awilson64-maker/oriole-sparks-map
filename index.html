@@ -128,7 +128,6 @@
       background: #ddd;
     }
 
-
     .coordinate-card {
       margin-top: 1rem;
       background: #fffaf0;
@@ -230,10 +229,9 @@
 
     <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
 
-
     <section class="coordinate-card" id="coordinateCard">
       <h2>Find coordinates</h2>
-      <p class="empty-message">Click anywhere on the map to get latitude and longitude for that spot.</p>
+      <p>Click anywhere on the map to get the latitude and longitude for that spot.</p>
     </section>
 
     <section class="details-card" id="detailsCard">
@@ -298,7 +296,6 @@
         loadCountyBoundary();
         loadSubmissions();
 
-
         function showCoordinates(latlng) {
           var lat = latlng.lat.toFixed(6);
           var lng = latlng.lng.toFixed(6);
@@ -318,9 +315,9 @@
           coordinateCard.innerHTML =
             "<h2>Find coordinates</h2>" +
             "<p>Use these numbers in the Google Form for this spot:</p>" +
-            "<div class="coordinate-box">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div><br>" +
-            "<button class="small-button" id="copyCoordinatesButton" type="button">Copy coordinates</button>" +
-            "<p class="empty-message">Tip: paste the first number into Latitude and the second number into Longitude.</p>";
+            "<div class='coordinate-box'>Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div><br>" +
+            "<button class='small-button' id='copyCoordinatesButton' type='button'>Copy coordinates</button>" +
+            "<p class='empty-message'>Tip: paste the first number into Latitude and the second number into Longitude.</p>";
 
           var copyButton = document.getElementById("copyCoordinatesButton");
           if (copyButton) {
