@@ -404,9 +404,11 @@
       markerLayer.clearLayers();
 
       const approved = submissions.filter(item => {
-        const isApproved = String(item.approved || "").trim().toLowerCase() === "yes";
-        const lat = Number(item.latitude);
-        const lng = Number(item.longitude);
+        const approvalValue = String(item.approved || "").trim().toLowerCase();
+        const iconst lat = Number(String(item.latitude || "").trim());
+        const lng = Number(String(item.longitude || "").trim());=== "true" || approvalValue === "1";
+        const lat = Number(String(item.latitude || "").trim());
+        const lng = Number(String(item.longitude || "").trim());
         return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
       });
 
@@ -419,7 +421,7 @@
         marker.on("click", () => showDetails(item));
       });
 
-      statusEl.textContent = `${approved.length} approved submission${approved.length === 1 ? "" : "s"} on the map.`;
+      statusEl.textContent = `${approved.length} approved submission${approved.length === 1 ? "" : "s"} on the map. ${submissions.length} total row${submissions.length === 1 ? "" : "s"} loaded from the Sheet.`;
     }
 
     async function loadSubmissions() {
@@ -491,13 +493,13 @@
         rows.push(currentRow);
       }
 
-      const headers = rows.shift()?.map(header => header.trim()) || [];
+      const headers = rows.shift()?.map(header => String(header || "").replace(/^\uFEFF/, "").trim()) || [];
       return rows
         .filter(row => row.some(cell => String(cell).trim() !== ""))
         .map(row => {
           const record = {};
           headers.forEach((header, index) => {
-            record[header] = row[index] ? row[index].trim() : "";
+            record[header] = row[index] ? String(row[index]).trim() : "";
           });
           return record;
         });
@@ -526,4 +528,6 @@
     loadSubmissions();
   </script>
 </body>
+</html>
+
 </html>
