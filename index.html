@@ -4,644 +4,247 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Oriole Sparks Favorite Places Map</title>
-
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <style>
-    :root {
-      --spark-green: #2e7d32;
-      --spark-orange: #ef6c00;
-      --spark-blue: #1565c0;
-      --spark-cream: #f8f6ef;
-      --text: #222;
-      --muted: #666;
-      --border: #d7d7d7;
-      --card: #ffffff;
-      --shadow: rgba(0,0,0,0.08);
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      color: var(--text);
-      background: var(--spark-cream);
-    }
-
-    header {
-      background: linear-gradient(135deg, var(--spark-green), var(--spark-blue));
-      color: white;
-      padding: 1.25rem;
-      text-align: center;
-    }
-
-    .branding {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 0.5rem;
-    }
-
-    .logo-wrap {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .clover {
-      width: 78px;
-      height: 78px;
-      object-fit: contain;
-      flex-shrink: 0;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
-      border-radius: 12px;
-      background: white;
-      padding: 4px;
-    }
-
-    .spark-title { text-align: left; }
-
-    .spark-title .small {
-      font-size: 0.9rem;
-      opacity: 0.9;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-
-    .spark-title .big {
-      font-size: clamp(1.8rem, 5vw, 3rem);
-      font-weight: bold;
-      line-height: 1;
-    }
-
-    header p {
-      margin: 0.5rem auto 0;
-      max-width: 760px;
-      line-height: 1.4;
-    }
-
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
-
-    .top-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-    }
-
-    .button {
-      display: inline-block;
-      background: var(--spark-orange);
-      color: white;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: bold;
-      border: none;
-      cursor: pointer;
-    }
-
-    .button:hover { background: #c25a00; }
-
-    .status {
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    #map {
-      height: 560px;
-      width: 100%;
-      position: relative;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      box-shadow: 0 4px 16px var(--shadow);
-      background: #ddd;
-    }
-
-
-    .coordinate-card {
-      margin-top: 1rem;
-      background: #fffaf0;
-      border: 1px solid var(--border);
-      border-left: 6px solid var(--spark-orange);
-      border-radius: 14px;
-      padding: 1rem;
-      box-shadow: 0 4px 16px var(--shadow);
-      min-height: 110px;
-    }
-
-    .coordinate-card h2 {
-      margin: 0 0 0.5rem;
-      color: var(--spark-orange);
-    }
-
-    .coordinate-box {
-      font-family: Consolas, Monaco, monospace;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.6rem;
-      display: inline-block;
-      margin: 0.35rem 0;
-      line-height: 1.45;
-    }
-
-    .small-button {
-      display: inline-block;
-      margin-top: 0.35rem;
-      background: var(--spark-green);
-      color: white;
-      padding: 0.45rem 0.7rem;
-      border-radius: 8px;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .small-button:hover { background: #1f5f25; }
-
-    .details-card {
-      margin-top: 1rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1rem;
-      box-shadow: 0 4px 16px var(--shadow);
-      min-height: 140px;
-    }
-
-    .details-card h2 {
-      margin: 0 0 0.5rem;
-      color: var(--spark-green);
-    }
-
-    .details-card p { line-height: 1.45; }
-
-    .submission-image {
-      display: block;
-      max-width: 100%;
-      max-height: 420px;
-      object-fit: contain;
-      margin-top: 0.75rem;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-    }
-
-    .empty-message { color: var(--muted); }
-
-    .footer-note {
-      margin-top: 1rem;
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.4;
-    }
+    :root { --spark-green:#2e7d32; --spark-orange:#ef6c00; --spark-blue:#1565c0; --spark-cream:#f8f6ef; --text:#222; --muted:#666; --border:#d7d7d7; --card:#ffffff; --shadow:rgba(0,0,0,0.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--text); background:var(--spark-cream); }
+    header { background:linear-gradient(135deg,var(--spark-green),var(--spark-blue)); color:white; padding:1.25rem; text-align:center; }
+    .branding { display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem; }
+    .logo-wrap { display:flex; align-items:center; gap:.75rem; }
+    .clover { width:78px; height:78px; object-fit:contain; flex-shrink:0; filter:drop-shadow(0 2px 6px rgba(0,0,0,.25)); border-radius:12px; background:white; padding:4px; }
+    .spark-title { text-align:left; }
+    .spark-title .small { font-size:.9rem; opacity:.9; letter-spacing:.05em; text-transform:uppercase; }
+    .spark-title .big { font-size:clamp(1.8rem,5vw,3rem); font-weight:bold; line-height:1; }
+    header p { margin:.5rem auto 0; max-width:760px; line-height:1.4; }
+    main { max-width:1100px; margin:0 auto; padding:1rem; }
+    .top-actions { display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .button { display:inline-block; background:var(--spark-orange); color:white; padding:.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:bold; border:none; cursor:pointer; }
+    .button:hover { background:#c25a00; }
+    .status { color:var(--muted); font-size:.95rem; }
+    #map { height:560px; width:100%; position:relative; border-radius:14px; border:1px solid var(--border); box-shadow:0 4px 16px var(--shadow); background:#ddd; }
+    .coordinate-card { margin-top:1rem; background:#fffaf0; border:1px solid var(--border); border-left:6px solid var(--spark-orange); border-radius:14px; padding:1rem; box-shadow:0 4px 16px var(--shadow); min-height:110px; }
+    .coordinate-card h2 { margin:0 0 .5rem; color:var(--spark-orange); }
+    .coordinate-box { font-family:Consolas, Monaco, monospace; background:white; border:1px solid var(--border); border-radius:8px; padding:.6rem; display:inline-block; margin:.35rem 0; line-height:1.45; }
+    .small-button { display:inline-block; margin-top:.35rem; background:var(--spark-green); color:white; padding:.45rem .7rem; border-radius:8px; border:none; font-weight:bold; cursor:pointer; }
+    .small-button:hover { background:#1f5f25; }
+    .details-card { margin-top:1rem; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1rem; box-shadow:0 4px 16px var(--shadow); min-height:140px; }
+    .details-card h2 { margin:0 0 .5rem; color:var(--spark-green); }
+    .details-card p { line-height:1.45; }
+    .submission-image { display:block; max-width:100%; max-height:420px; object-fit:contain; margin-top:.75rem; border-radius:10px; border:1px solid var(--border); }
+    .empty-message { color:var(--muted); }
+    .footer-note { margin-top:1rem; color:var(--muted); font-size:.9rem; line-height:1.4; }
   </style>
 </head>
-
 <body>
   <header>
-    <div class="branding">
-      <div class="logo-wrap">
-        <img class="clover" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQ3tcWNyu80tnJAFweLCtFkHkiJPzopWp8vA&amp;s" alt="4-H logo" />
-        <div class="spark-title">
-          <div class="small">Fond du Lac County 4-H</div>
-          <div class="big">Oriole Sparks</div>
-        </div>
-      </div>
-    </div>
+    <div class="branding"><div class="logo-wrap"><img class="clover" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQ3tcWNyu80tnJAFweLCtFkHkiJPzopWp8vA&amp;s" alt="4-H logo" /><div class="spark-title"><div class="small">Fond du Lac County 4-H</div><div class="big">Oriole Sparks</div></div></div></div>
     <p>Students in Oriole Sparks are mapping favorite places across Fond du Lac County and sharing what makes those places special to them.</p>
   </header>
-
   <main>
-    <section class="top-actions">
-      <a class="button" id="submitLink" href="#" target="_blank" rel="noopener">Submit a Favorite Place</a>
-      <div class="status" id="status">Starting map...</div>
-    </section>
-
+    <section class="top-actions"><a class="button" id="submitLink" href="#" target="_blank" rel="noopener">Submit a Favorite Place</a><div class="status" id="status">Starting map...</div></section>
     <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
-
-
-    <section class="coordinate-card" id="coordinateCard">
-      <h2>Find coordinates</h2>
-      <p class="empty-message">Click anywhere on the map to get latitude and longitude for that spot.</p>
-    </section>
-
-    <section class="details-card" id="detailsCard">
-      <h2>Click a dot on the map</h2>
-      <p class="empty-message">When you click a student submission, the photo and details will appear here.</p>
-    </section>
-
+    <section class="coordinate-card" id="coordinateCard"><h2>Find coordinates</h2><p class="empty-message">Click anywhere on the map to get latitude and longitude for that spot.</p></section>
+    <section class="details-card" id="detailsCard"><h2>Click a dot on the map</h2><p class="empty-message">When you click a student submission, the photo and details will appear here.</p></section>
     <p class="footer-note">Privacy note: submissions should use first names only and should focus on public or community places, not private home addresses.</p>
   </main>
-
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       var GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdLCLZdq1ALGVppr9H455-EBvM9QtIM-OkLpKju2TJVEbb9Ig/viewform?usp=sharing&ouid=112412639050177212790";
       var GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
       var COUNTY_FIPS = "55039";
       var COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
-
       var submitLink = document.getElementById("submitLink");
       var statusEl = document.getElementById("status");
       var detailsCard = document.getElementById("detailsCard");
       var coordinateCard = document.getElementById("coordinateCard");
-
-      function setStatus(message) {
-        statusEl.textContent = message;
-      }
-
+      function setStatus(message) { statusEl.textContent = message; }
       try {
         submitLink.href = GOOGLE_FORM_URL;
         setStatus("JavaScript started. Loading map...");
-
-        if (typeof L === "undefined") {
-          setStatus("Leaflet did not load. Try refreshing the page.");
-          return;
-        }
-
+        if (typeof L === "undefined") { setStatus("Leaflet did not load. Try refreshing the page."); return; }
         var fdlBounds = L.latLngBounds([43.49, -88.90], [43.98, -88.14]);
-        var map = L.map("map", {
-          maxBounds: fdlBounds.pad(0.3),
-          maxBoundsViscosity: 0.85,
-          minZoom: 9,
-          maxZoom: 18
-        });
-
+        var map = L.map("map", { maxBounds: fdlBounds.pad(0.3), maxBoundsViscosity: 0.85, minZoom: 9, maxZoom: 18 });
         map.fitBounds(fdlBounds);
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
-          attribution: "&copy; OpenStreetMap contributors"
-        }).addTo(map);
-
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
         var boundaryLayer = L.layerGroup().addTo(map);
         var maskLayer = L.layerGroup().addTo(map);
         var markerLayer = L.layerGroup().addTo(map);
         var coordinateMarker = null;
-
-        map.on("click", function (event) {
-          showCoordinates(event.latlng);
-        });
-
-
+        map.on("click", function (event) { showCoordinates(event.latlng); });
         setTimeout(function () { map.invalidateSize(); }, 250);
-
         loadCountyBoundary();
         loadSubmissions();
-
-
-        function showCoordinates(latlng) {
-          var lat = latlng.lat.toFixed(6);
-          var lng = latlng.lng.toFixed(6);
-
-          if (coordinateMarker) {
-            coordinateMarker.setLatLng(latlng);
-          } else {
-            coordinateMarker = L.circleMarker(latlng, {
-              radius: 8,
-              color: "#ef6c00",
-              weight: 3,
-              fillColor: "#f4b400",
-              fillOpacity: 0.85,
-              interactive: false
-            }).addTo(map);
-          }
-
-          coordinateCard.innerHTML =
-            "<h2>Find coordinates</h2>" +
-            "<p>Looking up nearby place...</p>" +
-            "<div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) +
-            "<br>Longitude: " + escapeHtml(lng) +
-            "</div>";
-
-          fetch(
-            "https://nominatim.openstreetmap.org/reverse?format=jsonv2&namedetails=1&extratags=1&lat=" +
-            encodeURIComponent(lat) +
-            "&lon=" +
-            encodeURIComponent(lng) +
-            "&zoom=18&addressdetails=1"
-          )
-          .then(function(response) {
-            if (!response.ok) throw new Error("Place lookup failed.");
-            return response.json();
-          })
-          .then(function(data) {
-            var placeName = getBestPlaceName(data);
+        async function showCoordinates(latlng) {
+          var lat = latlng.lat.toFixed(6), lng = latlng.lng.toFixed(6);
+          if (coordinateMarker) coordinateMarker.setLatLng(latlng); else coordinateMarker = L.circleMarker(latlng, { radius:8, color:"#ef6c00", weight:3, fillColor:"#f4b400", fillOpacity:.85, interactive:false }).addTo(map);
+          coordinateCard.innerHTML = "<h2>Find coordinates</h2><p>Looking up nearby place...</p><div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div>";
+          try {
+            var reverseResponse = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&namedetails=1&extratags=1&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1");
+            if (!reverseResponse.ok) throw new Error("Place lookup failed.");
+            var reverseData = await reverseResponse.json();
+            var placeName = getBestPlaceName(reverseData);
+            if (isFallbackishPlaceName(placeName, reverseData)) {
+              var poiName = await findNearbyKnownPlace(latlng.lat, latlng.lng);
+              if (poiName) placeName = poiName;
+            }
             renderCoordinateResult(placeName, lat, lng, false);
-          })
-          .catch(function(error) {
+          } catch (error) {
             console.error(error);
             renderCoordinateResult("Could not find a nearby place name", lat, lng, true);
-          });
+          }
         }
-
         function getBestPlaceName(data) {
           if (!data) return "Unknown location";
-
-          var address = data.address || {};
-          var namedetails = data.namedetails || {};
-          var candidates = [];
-
+          var address = data.address || {}, namedetails = data.namedetails || {}, candidates = [];
           addCandidate(candidates, data.name, 100);
           addCandidate(candidates, namedetails.name, 98);
           addCandidate(candidates, namedetails["name:en"], 97);
-
-          addCandidate(candidates, address.park, 95);
-          addCandidate(candidates, address.school, 95);
-          addCandidate(candidates, address.university, 95);
-          addCandidate(candidates, address.college, 95);
-          addCandidate(candidates, address.library, 95);
-          addCandidate(candidates, address.playground, 95);
-          addCandidate(candidates, address.stadium, 95);
-          addCandidate(candidates, address.sports_centre, 95);
-          addCandidate(candidates, address.hospital, 95);
-          addCandidate(candidates, address.clinic, 95);
-          addCandidate(candidates, address.place_of_worship, 95);
-          addCandidate(candidates, address.cinema, 95);
-          addCandidate(candidates, address.theatre, 95);
-          addCandidate(candidates, address.museum, 95);
-          addCandidate(candidates, address.attraction, 94);
-          addCandidate(candidates, address.tourism, 93);
-          addCandidate(candidates, address.leisure, 92);
-          addCandidate(candidates, address.amenity, 91);
-          addCandidate(candidates, address.shop, 90);
-          addCandidate(candidates, address.building, 88);
-          addCandidate(candidates, address.office, 87);
-
-          addCandidate(candidates, firstDisplayPart(data.display_name), 80);
-
-          addCandidate(candidates, address.neighbourhood, 55);
-          addCandidate(candidates, address.suburb, 54);
-          addCandidate(candidates, address.hamlet, 53);
-          addCandidate(candidates, address.city, 52);
-          addCandidate(candidates, address.town, 52);
-          addCandidate(candidates, address.village, 52);
-          addCandidate(candidates, address.road, 25);
-          addCandidate(candidates, address.highway, 24);
-
-          candidates.sort(function (a, b) {
-            return b.score - a.score;
+          ["park","school","university","college","library","playground","stadium","sports_centre","hospital","clinic","place_of_worship","cinema","theatre","museum","attraction","tourism","leisure","amenity","shop","building","office"].forEach(function (key, idx) {
+            if (address[key]) addCandidate(candidates, address[key], 95 - idx * 0.5);
           });
-
-          if (candidates.length > 0) {
-            return candidates[0].label;
-          }
-
+          addCandidate(candidates, firstDisplayPart(data.display_name), 80);
+          ["neighbourhood","suburb","hamlet","city","town","village"].forEach(function (key, idx) { if (address[key]) addCandidate(candidates, address[key], 55 - idx); });
+          if (address.road) addCandidate(candidates, address.road, 25);
+          if (address.highway) addCandidate(candidates, address.highway, 24);
+          candidates.sort(function (a, b) { return b.score - a.score; });
+          if (candidates.length > 0) return candidates[0].label;
           if (data.display_name) return data.display_name.split(",").slice(0, 3).join(",").trim();
           return "Unknown location";
         }
-
         function addCandidate(candidates, value, score) {
           var label = cleanPlaceLabel(value);
-          if (!label) return;
-          if (isGenericRoadLabel(label)) return;
+          if (!label || isGenericRoadLabel(label)) return;
           if (candidates.some(function (item) { return item.label.toLowerCase() === label.toLowerCase(); })) return;
           candidates.push({ label: label, score: score });
         }
-
         function cleanPlaceLabel(value) {
-          var label = String(value || "").trim();
-          if (!label) return "";
-          label = label.replace(/_/g, " ");
-          label = label.replace(/\s+/g, " ").trim();
-          if (label.length < 2) return "";
-          return label;
+          var label = String(value || "").trim().replace(/_/g, " ").replace(/\s+/g, " ").trim();
+          return label.length < 2 ? "" : label;
         }
-
         function isGenericRoadLabel(label) {
           var lower = String(label || "").trim().toLowerCase();
           if (!lower) return true;
-          return [
-            "road", "street", "avenue", "drive", "lane", "court", "trail", "highway", "county road",
-            "residential", "service road", "footway", "path", "yes", "unknown"
-          ].indexOf(lower) !== -1;
+          if (["road","street","avenue","drive","lane","court","trail","highway","county road","residential","service road","footway","path","yes","unknown"].indexOf(lower) !== -1) return true;
+          return /\b(road|street|avenue|drive|lane|court|highway|hwy|trail|blvd|boulevard|way)\b/i.test(label);
         }
-
-        function firstDisplayPart(displayName) {
-          if (!displayName) return "";
-          return String(displayName).split(",")[0].trim();
+        function firstDisplayPart(displayName) { return displayName ? String(displayName).split(",")[0].trim() : ""; }
+        function isFallbackishPlaceName(placeName, data) {
+          if (!placeName || isGenericRoadLabel(placeName)) return true;
+          var address = data && data.address ? data.address : {};
+          var lower = String(placeName).toLowerCase();
+          if (address.road && lower === String(address.road).toLowerCase()) return true;
+          if (address.highway && lower === String(address.highway).toLowerCase()) return true;
+          return false;
         }
-
-        function renderCoordinateResult(placeName, lat, lng, lookupFailed) {
-          coordinateCard.innerHTML =
-            "<h2>Find coordinates</h2>" +
-            "<p><strong>Nearby place:</strong> " + escapeHtml(placeName) + "</p>" +
-            "<div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) +
-            "<br>Longitude: " + escapeHtml(lng) +
-            "</div><br>" +
-            "<button class=\"small-button\" id=\"copyCoordinatesButton\" type=\"button\">Copy coordinates</button>" +
-            (lookupFailed ? "<p class=\"empty-message\">The coordinates still work. The place-name lookup just did not find a local label.</p>" : "<p class=\"empty-message\">Tip: paste the first number into Latitude and the second number into Longitude.</p>");
-
-          var copyButton = document.getElementById("copyCoordinatesButton");
-          if (copyButton) {
-            copyButton.addEventListener("click", function () {
-              var text = lat + ", " + lng;
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).catch(function () {});
-              }
-              copyButton.textContent = "Copied";
-              setTimeout(function () {
-                copyButton.textContent = "Copy coordinates";
-              }, 1200);
-            });
-          }
-        }
-
-        async function loadCountyBoundary() {
-          try {
-            var response = await fetch(COUNTY_GEOJSON_URL);
-            if (!response.ok) throw new Error("County boundary request failed.");
-            var geojson = await response.json();
-            var countyFeature = geojson.features.find(function (feature) {
-              return String(feature.id) === COUNTY_FIPS;
-            });
-            if (!countyFeature) throw new Error("Fond du Lac County boundary not found.");
-            drawCountyBoundary(countyFeature);
-          } catch (error) {
-            console.error(error);
-          }
-        }
-
-        function drawCountyBoundary(feature) {
-          boundaryLayer.clearLayers();
-          maskLayer.clearLayers();
-          var county = L.geoJSON(feature, {
-            style: {
-              color: "#2e7d32",
-              weight: 4,
-              opacity: 1,
-              fillColor: "#ffffff",
-              fillOpacity: 0.05
-            }
-          }).addTo(boundaryLayer);
-
-          county.bindTooltip("Fond du Lac County", { sticky: true });
-          var bounds = county.getBounds();
-          map.fitBounds(bounds.pad(0.08));
-          map.setMaxBounds(bounds.pad(0.35));
-          drawOutsideCountyMask(feature);
-        }
-
-        function drawOutsideCountyMask(feature) {
-          var worldOuterRing = [[90, -180], [90, 180], [-90, 180], [-90, -180]];
-          var countyHoles = getCountyOuterRings(feature).map(function (ring) {
-            return ring.map(function (coord) { return [coord[1], coord[0]]; });
-          });
-          L.polygon([worldOuterRing].concat(countyHoles), {
-            stroke: false,
-            fillColor: "#f8f6ef",
-            fillOpacity: 0.78,
-            interactive: false
-          }).addTo(maskLayer);
-        }
-
-        function getCountyOuterRings(feature) {
-          var geometry = feature.geometry;
-          if (!geometry) return [];
-          if (geometry.type === "Polygon") return [geometry.coordinates[0]];
-          if (geometry.type === "MultiPolygon") {
-            return geometry.coordinates.map(function (polygon) { return polygon[0]; });
-          }
-          return [];
-        }
-
-        async function loadSubmissions() {
-          try {
-            setStatus("Loading approved submissions from Google Sheet...");
-            var response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now());
-            if (!response.ok) throw new Error("Google Sheet CSV request failed.");
-            var csvText = await response.text();
-            var rows = parseCsv(csvText);
-            var submissions = rows.map(function (row) {
-              return {
-                firstName: getCell(row, ["First Name", "first name", "Name"]),
-                placeName: getCell(row, ["Favorite Place Name", "Place Name", "place name", "Place"]),
-                description: getCell(row, ["Why is this place special to you?", "Description", "description"]),
-                latitude: getCell(row, ["Latitude", "latitude", "Lat"]),
-                longitude: getCell(row, ["Longitude", "longitude", "Long", "Lng"]),
-                imageUrl: getCell(row, ["Link to Photo", "link to photo", "Image URL", "image url", "Image", "Photo"]),
-                approved: getCell(row, ["Approved", "approved"])
-              };
-            });
-            addMarkers(submissions);
-          } catch (error) {
-            console.error(error);
-            setStatus("Could not load Google Sheet data: " + error.message);
-          }
-        }
-
-        function getCell(row, possibleHeaders) {
-          for (var i = 0; i < possibleHeaders.length; i++) {
-            var header = possibleHeaders[i];
-            if (row[header] !== undefined) return row[header];
+        async function findNearbyKnownPlace(lat, lng) {
+          var radiuses = [120, 250, 500];
+          for (var i = 0; i < radiuses.length; i++) {
+            var result = await searchNearbyPois(lat, lng, radiuses[i]);
+            if (result) return result;
           }
           return "";
         }
-
+        async function searchNearbyPois(lat, lng, radius) {
+          var parts = [
+            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][amenity];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][amenity];',
+            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][leisure];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][leisure];',
+            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][tourism];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][tourism];',
+            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][shop];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][shop];',
+            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][building=school];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][building=school];',
+            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][landuse=recreation_ground];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][landuse=recreation_ground];'
+          ];
+          var query = '[out:json][timeout:12];(' + parts.join('') + ');out center tags 20;';
+          var response = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body: query });
+          if (!response.ok) return "";
+          var data = await response.json();
+          if (!data || !Array.isArray(data.elements) || !data.elements.length) return "";
+          var scored = data.elements.map(function (element) {
+            var tags = element.tags || {}, name = cleanPlaceLabel(tags.name);
+            if (!name || isGenericRoadLabel(name)) return null;
+            var elLat = typeof element.lat === 'number' ? element.lat : (element.center && element.center.lat);
+            var elLng = typeof element.lon === 'number' ? element.lon : (element.center && element.center.lon);
+            if (typeof elLat !== 'number' || typeof elLng !== 'number') return null;
+            return { name:name, score:scorePoi(tags) - distanceMeters(lat, lng, elLat, elLng) / 50 };
+          }).filter(Boolean);
+          scored.sort(function (a, b) { return b.score - a.score; });
+          return scored.length ? scored[0].name : "";
+        }
+        function scorePoi(tags) {
+          var score = 0;
+          if (tags.amenity === 'school' || tags.building === 'school') score += 120;
+          if (tags.leisure === 'park' || tags.boundary === 'national_park') score += 115;
+          if (tags.leisure === 'playground') score += 110;
+          if (tags.amenity === 'library') score += 108;
+          if (tags.amenity === 'college' || tags.amenity === 'university') score += 107;
+          if (tags.tourism === 'museum' || tags.tourism === 'attraction') score += 105;
+          if (tags.leisure === 'sports_centre' || tags.leisure === 'stadium') score += 103;
+          if (tags.shop) score += 95;
+          if (tags.amenity) score += 92;
+          if (tags.leisure) score += 90;
+          if (tags.tourism) score += 88;
+          return score;
+        }
+        function distanceMeters(lat1, lng1, lat2, lng2) {
+          var R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+          var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        }
+        function renderCoordinateResult(placeName, lat, lng, lookupFailed) {
+          coordinateCard.innerHTML = "<h2>Find coordinates</h2><p><strong>Nearby place:</strong> " + escapeHtml(placeName) + "</p><div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div><br><button class=\"small-button\" id=\"copyCoordinatesButton\" type=\"button\">Copy coordinates</button>" + (lookupFailed ? "<p class=\"empty-message\">The coordinates still work. The place-name lookup just did not find a local label.</p>" : "<p class=\"empty-message\">Tip: paste the first number into Latitude and the second number into Longitude.</p>");
+          var copyButton = document.getElementById("copyCoordinatesButton");
+          if (copyButton) copyButton.addEventListener("click", function () { var text = lat + ", " + lng; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {}); copyButton.textContent = "Copied"; setTimeout(function () { copyButton.textContent = "Copy coordinates"; }, 1200); });
+        }
+        async function loadCountyBoundary() {
+          try {
+            var response = await fetch(COUNTY_GEOJSON_URL); if (!response.ok) throw new Error("County boundary request failed.");
+            var geojson = await response.json(); var countyFeature = geojson.features.find(function (feature) { return String(feature.id) === COUNTY_FIPS; });
+            if (!countyFeature) throw new Error("Fond du Lac County boundary not found."); drawCountyBoundary(countyFeature);
+          } catch (error) { console.error(error); }
+        }
+        function drawCountyBoundary(feature) {
+          boundaryLayer.clearLayers(); maskLayer.clearLayers();
+          var county = L.geoJSON(feature, { style:{ color:"#2e7d32", weight:4, opacity:1, fillColor:"#ffffff", fillOpacity:.05 } }).addTo(boundaryLayer);
+          county.bindTooltip("Fond du Lac County", { sticky:true }); var bounds = county.getBounds(); map.fitBounds(bounds.pad(.08)); map.setMaxBounds(bounds.pad(.35)); drawOutsideCountyMask(feature);
+        }
+        function drawOutsideCountyMask(feature) {
+          var worldOuterRing = [[90,-180],[90,180],[-90,180],[-90,-180]];
+          var countyHoles = getCountyOuterRings(feature).map(function (ring) { return ring.map(function (coord) { return [coord[1], coord[0]]; }); });
+          L.polygon([worldOuterRing].concat(countyHoles), { stroke:false, fillColor:"#f8f6ef", fillOpacity:.78, interactive:false }).addTo(maskLayer);
+        }
+        function getCountyOuterRings(feature) {
+          var geometry = feature.geometry; if (!geometry) return []; if (geometry.type === "Polygon") return [geometry.coordinates[0]]; if (geometry.type === "MultiPolygon") return geometry.coordinates.map(function (polygon) { return polygon[0]; }); return [];
+        }
+        async function loadSubmissions() {
+          try {
+            setStatus("Loading approved submissions from Google Sheet..."); var response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now()); if (!response.ok) throw new Error("Google Sheet CSV request failed.");
+            var csvText = await response.text(); var rows = parseCsv(csvText); var submissions = rows.map(function (row) { return { firstName:getCell(row,["First Name","first name","Name"]), placeName:getCell(row,["Favorite Place Name","Place Name","place name","Place"]), description:getCell(row,["Why is this place special to you?","Description","description"]), latitude:getCell(row,["Latitude","latitude","Lat"]), longitude:getCell(row,["Longitude","longitude","Long","Lng"]), imageUrl:getCell(row,["Link to Photo","link to photo","Image URL","image url","Image","Photo"]), approved:getCell(row,["Approved","approved"]) }; });
+            addMarkers(submissions);
+          } catch (error) { console.error(error); setStatus("Could not load Google Sheet data: " + error.message); }
+        }
+        function getCell(row, possibleHeaders) { for (var i = 0; i < possibleHeaders.length; i++) if (row[possibleHeaders[i]] !== undefined) return row[possibleHeaders[i]]; return ""; }
         function addMarkers(submissions) {
           markerLayer.clearLayers();
-          var approved = submissions.filter(function (item) {
-            var approvalValue = String(item.approved || "").trim().toLowerCase();
-            var isApproved = ["yes", "y", "true", "1"].indexOf(approvalValue) !== -1;
-            var lat = Number(String(item.latitude || "").trim());
-            var lng = Number(String(item.longitude || "").trim());
-            return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
-          });
-
-          approved.forEach(function (item) {
-            var lat = Number(String(item.latitude || "").trim());
-            var lng = Number(String(item.longitude || "").trim());
-            var marker = L.marker([lat, lng]).addTo(markerLayer);
-            marker.bindPopup("<strong>" + escapeHtml(item.placeName || "Favorite Place") + "</strong><br>Submitted by " + escapeHtml(item.firstName || "Student"));
-            marker.on("click", function () { showDetails(item); });
-          });
-
+          var approved = submissions.filter(function (item) { var approvalValue = String(item.approved || "").trim().toLowerCase(); var isApproved = ["yes","y","true","1"].indexOf(approvalValue) !== -1; var lat = Number(String(item.latitude || "").trim()); var lng = Number(String(item.longitude || "").trim()); return isApproved && Number.isFinite(lat) && Number.isFinite(lng); });
+          approved.forEach(function (item) { var lat = Number(String(item.latitude || "").trim()), lng = Number(String(item.longitude || "").trim()); var marker = L.marker([lat, lng]).addTo(markerLayer); marker.bindPopup("<strong>" + escapeHtml(item.placeName || "Favorite Place") + "</strong><br>Submitted by " + escapeHtml(item.firstName || "Student")); marker.on("click", function () { showDetails(item); }); });
           setStatus(approved.length + " approved submission" + (approved.length === 1 ? "" : "s") + " on the map. " + submissions.length + " total row" + (submissions.length === 1 ? "" : "s") + " loaded from the Sheet.");
         }
-
         function showDetails(item) {
-          var safeFirstName = escapeHtml(item.firstName || "Student");
-          var safePlaceName = escapeHtml(item.placeName || "Favorite Place");
-          var safeDescription = escapeHtml(item.description || "No description provided.");
+          var safeFirstName = escapeHtml(item.firstName || "Student"), safePlaceName = escapeHtml(item.placeName || "Favorite Place"), safeDescription = escapeHtml(item.description || "No description provided.");
           var imageHtml = item.imageUrl ? "<img class=\"submission-image\" src=\"" + escapeAttribute(item.imageUrl) + "\" alt=\"Photo submitted for " + safePlaceName + "\" />" : "<p class=\"empty-message\">No photo has been added for this submission yet.</p>";
           detailsCard.innerHTML = "<h2>" + safePlaceName + "</h2><p><strong>Submitted by:</strong> " + safeFirstName + "</p><p>" + safeDescription + "</p>" + imageHtml;
         }
-
         function parseCsv(csvText) {
-          var rows = [];
-          var currentRow = [];
-          var currentCell = "";
-          var insideQuotes = false;
-
-          for (var i = 0; i < csvText.length; i++) {
-            var char = csvText[i];
-            var nextChar = csvText[i + 1];
-            if (char === '"' && insideQuotes && nextChar === '"') {
-              currentCell += '"';
-              i++;
-            } else if (char === '"') {
-              insideQuotes = !insideQuotes;
-            } else if (char === ',' && !insideQuotes) {
-              currentRow.push(currentCell);
-              currentCell = "";
-            } else if ((char === "\n" || char === "\r") && !insideQuotes) {
-              if (char === "\r" && nextChar === "\n") i++;
-              currentRow.push(currentCell);
-              rows.push(currentRow);
-              currentRow = [];
-              currentCell = "";
-            } else {
-              currentCell += char;
-            }
-          }
-
-          if (currentCell || currentRow.length) {
-            currentRow.push(currentCell);
-            rows.push(currentRow);
-          }
-
-          var headerRow = rows.shift() || [];
-          var headers = headerRow.map(function (header) {
-            return String(header || "").replace(/^\uFEFF/, "").trim();
-          });
-
-          return rows.filter(function (row) {
-            return row.some(function (cell) { return String(cell || "").trim() !== ""; });
-          }).map(function (row) {
-            var record = {};
-            headers.forEach(function (header, index) {
-              record[header] = row[index] ? String(row[index]).trim() : "";
-            });
-            return record;
-          });
+          var rows = [], currentRow = [], currentCell = "", insideQuotes = false;
+          for (var i = 0; i < csvText.length; i++) { var char = csvText[i], nextChar = csvText[i + 1]; if (char === '"' && insideQuotes && nextChar === '"') { currentCell += '"'; i++; } else if (char === '"') insideQuotes = !insideQuotes; else if (char === ',' && !insideQuotes) { currentRow.push(currentCell); currentCell = ""; } else if ((char === "\n" || char === "\r") && !insideQuotes) { if (char === "\r" && nextChar === "\n") i++; currentRow.push(currentCell); rows.push(currentRow); currentRow = []; currentCell = ""; } else currentCell += char; }
+          if (currentCell || currentRow.length) { currentRow.push(currentCell); rows.push(currentRow); }
+          var headerRow = rows.shift() || []; var headers = headerRow.map(function (header) { return String(header || "").replace(/^\uFEFF/, "").trim(); });
+          return rows.filter(function (row) { return row.some(function (cell) { return String(cell || "").trim() !== ""; }); }).map(function (row) { var record = {}; headers.forEach(function (header, index) { record[header] = row[index] ? String(row[index]).trim() : ""; }); return record; });
         }
-
-        function escapeHtml(value) {
-          return String(value)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-        }
-
-        function escapeAttribute(value) {
-          return escapeHtml(value).replaceAll("`", "&#096;");
-        }
-      } catch (error) {
-        console.error(error);
-        setStatus("Startup error: " + error.message);
-      }
+        function escapeHtml(value) { return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+        function escapeAttribute(value) { return escapeHtml(value).replaceAll("`", "&#096;"); }
+      } catch (error) { console.error(error); setStatus("Startup error: " + error.message); }
     });
   </script>
 </body>
