@@ -228,21 +228,24 @@
 
   <script>
     window.addEventListener("error", event => {
-      console.error("Preview/app error:", event.message, event.error);
+      const statusEl = document.getElementById("status");
+      if (statusEl) statusEl.textContent = "Something went wrong loading the map. Check the browser console.";
+      console.error("App error:", event.message, event.error);
     });
 
     window.addEventListener("unhandledrejection", event => {
-      console.error("Preview/app promise error:", event.reason);
+      const statusEl = document.getElementById("status");
+      if (statusEl) statusEl.textContent = "Something went wrong loading data. Check the browser console.";
+      console.error("Promise error:", event.reason);
     });
-    // STEP 1: Replace this with Misty's Google Form public link.
+
     const GOOGLE_FORM_URL = "https://forms.gle/REPLACE_WITH_YOUR_FORM_LINK";
 
-    // Google Sheet published-to-web links.
-    // CSV works when hosted online. GViz/JSONP works better when opening this file directly from your computer.
     const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFUBtLW6dsmfQ00SV_AOkGV2LcWuo4lk81Bnq1X-muhzHXqyWNs7K4s-RWBTD8oLhLNb72UT-roOhl/pub?output=csv";
-    const GOOGLE_SHEET_GVIZ_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFUBtLW6dsmfQ00SV_AOkGV2LcWuo4lk81Bnq1X-muhzHXqyWNs7K4s-RWBTD8oLhLNb72UT-roOhl/gviz/tq?tqx=out:json;responseHandler:handleGoogleSheetResponse";
 
-    // Temporary sample data so the map works before Google Sheets is connected.
+    const COUNTY_FIPS = "55039";
+    const COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
+
     const SAMPLE_SUBMISSIONS = [
       {
         firstName: "Ava",
@@ -279,19 +282,13 @@
 
     submitLink.href = GOOGLE_FORM_URL;
 
-    // Fond du Lac County FIPS code: 55039.
-    // Boundary source: public county GeoJSON file. The app filters this down to only Fond du Lac County.
-    const COUNTY_FIPS = "55039";
-    const COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
-
-    // Fond du Lac County approximate fallback bounds, used while the real boundary loads or if it fails.
     const fdlBounds = L.latLngBounds(
       [43.49, -88.90],
       [43.98, -88.14]
     );
 
     const map = L.map("map", {
-      maxBounds: fdlBounds,
+      maxBounds: fdlBounds.pad(0.3),
       maxBoundsViscosity: 0.85,
       minZoom: 9,
       maxZoom: 18
@@ -308,22 +305,6 @@
     const maskLayer = L.layerGroup().addTo(map);
     const markerLayer = L.layerGroup().addTo(map);
 
-    function showDetails(item) {
-      const safeFirstName = escapeHtml(item.firstName || "Student");
-      const safePlaceName = escapeHtml(item.placeName || "Favorite Place");
-      const safeDescription = escapeHtml(item.description || "No description provided.");
-      const imageHtml = item.imageUrl
-        ? `<img class="submission-image" src="${escapeAttribute(item.imageUrl)}" alt="Photo submitted for ${safePlaceName}" />`
-        : `<p class="empty-message">No photo has been added for this submission yet.</p>`;
-
-      detailsCard.innerHTML = `
-        <h2>${safePlaceName}</h2>
-        <p><strong>Submitted by:</strong> ${safeFirstName}</p>
-        <p>${safeDescription}</p>
-        ${imageHtml}
-      `;
-    }
-
     async function loadCountyBoundary() {
       try {
         const response = await fetch(COUNTY_GEOJSON_URL);
@@ -331,12 +312,12 @@
 
         const geojson = await response.json();
         const countyFeature = geojson.features.find(feature => String(feature.id) === COUNTY_FIPS);
-        if (!countyFeature) throw new Error("Fond du Lac County boundary not found in GeoJSON.");
+        if (!countyFeature) throw new Error("Fond du Lac County boundary not found.");
 
         drawCountyBoundary(countyFeature);
       } catch (error) {
         console.error(error);
-        statusEl.textContent = "County boundary could not be loaded. Showing approximate Fond du Lac County area.";
+        statusEl.textContent = "County boundary could not be loaded, but the map is still usable.";
       }
     }
 
@@ -354,9 +335,7 @@
         }
       }).addTo(boundaryLayer);
 
-      county.bindTooltip("Fond du Lac County", {
-        sticky: true
-      });
+      county.bindTooltip("Fond du Lac County", { sticky: true });
 
       const bounds = county.getBounds();
       map.fitBounds(bounds.pad(0.08));
@@ -388,16 +367,25 @@
     function getCountyOuterRings(feature) {
       const geometry = feature.geometry;
       if (!geometry) return [];
-
-      if (geometry.type === "Polygon") {
-        return [geometry.coordinates[0]];
-      }
-
-      if (geometry.type === "MultiPolygon") {
-        return geometry.coordinates.map(polygon => polygon[0]);
-      }
-
+      if (geometry.type === "Polygon") return [geometry.coordinates[0]];
+      if (geometry.type === "MultiPolygon") return geometry.coordinates.map(polygon => polygon[0]);
       return [];
+    }
+
+    function showDetails(item) {
+      const safeFirstName = escapeHtml(item.firstName || "Student");
+      const safePlaceName = escapeHtml(item.placeName || "Favorite Place");
+      const safeDescription = escapeHtml(item.description || "No description provided.");
+      const imageHtml = item.imageUrl
+        ? `<img class="submission-image" src="${escapeAttribute(item.imageUrl)}" alt="Photo submitted for ${safePlaceName}" />`
+        : `<p class="empty-message">No photo has been added for this submission yet.</p>`;
+
+      detailsCard.innerHTML = `
+        <h2>${safePlaceName}</h2>
+        <p><strong>Submitted by:</strong> ${safeFirstName}</p>
+        <p>${safeDescription}</p>
+        ${imageHtml}
+      `;
     }
 
     function addMarkers(submissions) {
@@ -405,16 +393,15 @@
 
       const approved = submissions.filter(item => {
         const approvalValue = String(item.approved || "").trim().toLowerCase();
-        const iconst lat = Number(String(item.latitude || "").trim());
-        const lng = Number(String(item.longitude || "").trim());=== "true" || approvalValue === "1";
+        const isApproved = ["yes", "y", "true", "1"].includes(approvalValue);
         const lat = Number(String(item.latitude || "").trim());
         const lng = Number(String(item.longitude || "").trim());
         return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
       });
 
       approved.forEach(item => {
-        const lat = Number(item.latitude);
-        const lng = Number(item.longitude);
+        const lat = Number(String(item.latitude || "").trim());
+        const lng = Number(String(item.longitude || "").trim());
         const marker = L.marker([lat, lng]).addTo(markerLayer);
 
         marker.bindPopup(`<strong>${escapeHtml(item.placeName || "Favorite Place")}</strong><br>Submitted by ${escapeHtml(item.firstName || "Student")}`);
@@ -433,7 +420,6 @@
 
       try {
         statusEl.textContent = "Loading approved submissions from Google Sheet...";
-
         const response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now());
         if (!response.ok) throw new Error("Sheet could not be loaded.");
 
@@ -441,13 +427,13 @@
         const rows = parseCsv(csvText);
 
         const submissions = rows.map(row => ({
-          firstName: row["First Name"] || row["first name"] || row["Name"] || "",
-          placeName: row["Place Name"] || row["place name"] || row["Place"] || "",
-          description: row["Description"] || row["description"] || "",
-          latitude: row["Latitude"] || row["latitude"] || row["Lat"] || "",
-          longitude: row["Longitude"] || row["longitude"] || row["Long"] || row["Lng"] || "",
-          imageUrl: row["Image URL"] || row["image url"] || row["Image"] || row["Photo"] || "",
-          approved: row["Approved"] || row["approved"] || ""
+          firstName: getCell(row, ["First Name", "first name", "Name"]),
+          placeName: getCell(row, ["Place Name", "place name", "Place"]),
+          description: getCell(row, ["Description", "description"]),
+          latitude: getCell(row, ["Latitude", "latitude", "Lat"]),
+          longitude: getCell(row, ["Longitude", "longitude", "Long", "Lng"]),
+          imageUrl: getCell(row, ["Image URL", "image url", "Image", "Photo"]),
+          approved: getCell(row, ["Approved", "approved"])
         }));
 
         addMarkers(submissions);
@@ -458,7 +444,13 @@
       }
     }
 
-    // Simple CSV parser that handles quoted commas.
+    function getCell(row, possibleHeaders) {
+      for (const header of possibleHeaders) {
+        if (row[header] !== undefined) return row[header];
+      }
+      return "";
+    }
+
     function parseCsv(csvText) {
       const rows = [];
       let currentRow = [];
@@ -477,8 +469,12 @@
         } else if (char === ',' && !insideQuotes) {
           currentRow.push(currentCell);
           currentCell = "";
-        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
-          if (char === '\r' && nextChar === '\n') i++;
+        } else if ((char === "
+" || char === "
+") && !insideQuotes) {
+          if (char === "
+" && nextChar === "
+") i++;
           currentRow.push(currentCell);
           rows.push(currentRow);
           currentRow = [];
@@ -493,9 +489,9 @@
         rows.push(currentRow);
       }
 
-      const headers = rows.shift()?.map(header => String(header || "").replace(/^\uFEFF/, "").trim()) || [];
+      const headers = (rows.shift() || []).map(header => String(header || "").replace(/^﻿/, "").trim());
       return rows
-        .filter(row => row.some(cell => String(cell).trim() !== ""))
+        .filter(row => row.some(cell => String(cell || "").trim() !== ""))
         .map(row => {
           const record = {};
           headers.forEach((header, index) => {
@@ -518,8 +514,6 @@
       return escapeHtml(value).replaceAll("`", "&#096;");
     }
 
-    // Canvas/browser previews sometimes render the map before the container has its final size.
-    // This forces Leaflet to recalculate so the map tiles line up properly.
     setTimeout(() => {
       map.invalidateSize();
     }, 250);
@@ -528,6 +522,4 @@
     loadSubmissions();
   </script>
 </body>
-</html>
-
 </html>
