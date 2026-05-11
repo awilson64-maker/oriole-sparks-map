@@ -89,6 +89,9 @@
               var poiName = await findNearbyKnownPlace(latlng.lat, latlng.lng);
               if (poiName) placeName = poiName;
             }
+            if (isWeakAreaLabel(placeName, reverseData)) {
+              placeName = getRoadFallback(reverseData) || placeName;
+            }
             renderCoordinateResult(placeName, lat, lng, false);
           } catch (error) {
             console.error(error);
@@ -105,13 +108,11 @@
             if (address[key]) addCandidate(candidates, address[key], 95 - idx * 0.5);
           });
           addCandidate(candidates, firstDisplayPart(data.display_name), 80);
-          ["neighbourhood","suburb","hamlet","city","town","village"].forEach(function (key, idx) { if (address[key]) addCandidate(candidates, address[key], 55 - idx); });
           if (address.road) addCandidate(candidates, address.road, 25);
           if (address.highway) addCandidate(candidates, address.highway, 24);
           candidates.sort(function (a, b) { return b.score - a.score; });
           if (candidates.length > 0) return candidates[0].label;
-          if (data.display_name) return data.display_name.split(",").slice(0, 3).join(",").trim();
-          return "Unknown location";
+          return getRoadFallback(data) || firstDisplayPart(data.display_name) || "Unknown location";
         }
         function addCandidate(candidates, value, score) {
           var label = cleanPlaceLabel(value);
@@ -132,11 +133,24 @@
         function firstDisplayPart(displayName) { return displayName ? String(displayName).split(",")[0].trim() : ""; }
         function isFallbackishPlaceName(placeName, data) {
           if (!placeName || isGenericRoadLabel(placeName)) return true;
+          if (isWeakAreaLabel(placeName, data)) return true;
           var address = data && data.address ? data.address : {};
           var lower = String(placeName).toLowerCase();
           if (address.road && lower === String(address.road).toLowerCase()) return true;
           if (address.highway && lower === String(address.highway).toLowerCase()) return true;
           return false;
+        }
+        function isWeakAreaLabel(placeName, data) {
+          var address = data && data.address ? data.address : {};
+          var lower = String(placeName || "").trim().toLowerCase();
+          if (!lower) return true;
+          return [address.city, address.town, address.village, address.hamlet, address.suburb, address.neighbourhood, address.county].some(function (value) {
+            return value && lower === String(value).trim().toLowerCase();
+          });
+        }
+        function getRoadFallback(data) {
+          var address = data && data.address ? data.address : {};
+          return cleanPlaceLabel(address.road || address.highway || "");
         }
         async function findNearbyKnownPlace(lat, lng) {
           var radiuses = [120, 250, 500];
