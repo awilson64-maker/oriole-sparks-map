@@ -304,50 +304,6 @@
           var lat = latlng.lat.toFixed(6);
           var lng = latlng.lng.toFixed(6);
 
-          coordinateCard.innerHTML =
-  "<h2>Find coordinates</h2>" +
-  "<p>Looking up nearby place...</p>";
-
-fetch(
-  "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" +
-  lat +
-  "&lon=" +
-  lng
-)
-.then(function(response) {
-  return response.json();
-})
-.then(function(data) {
-
-  var placeName = "Unknown location";
-
-  if (data.name) {
-    placeName = data.name;
-  } else if (data.display_name) {
-    placeName = data.display_name.split(",").slice(0, 3).join(",");
-  }
-
-  coordinateCard.innerHTML =
-    "<h2>Find coordinates</h2>" +
-    "<p><strong>Nearby place:</strong> " + escapeHtml(placeName) + "</p>" +
-    "<div style='font-family:monospace;background:white;padding:10px;border-radius:8px;border:1px solid #ccc;display:inline-block'>" +
-    "Latitude: " + escapeHtml(lat) +
-    "<br>Longitude: " + escapeHtml(lng) +
-    "</div>";
-
-})
-.catch(function(error) {
-
-  coordinateCard.innerHTML =
-    "<h2>Find coordinates</h2>" +
-    "<p>Could not find a nearby place name.</p>" +
-    "<div style='font-family:monospace;background:white;padding:10px;border-radius:8px;border:1px solid #ccc;display:inline-block'>" +
-    "Latitude: " + escapeHtml(lat) +
-    "<br>Longitude: " + escapeHtml(lng) +
-    "</div>";
-
-});
-
           if (coordinateMarker) {
             coordinateMarker.setLatLng(latlng);
           } else {
@@ -361,47 +317,79 @@ fetch(
             }).addTo(map);
           }
 
-          while (coordinateCard.firstChild) {
-            coordinateCard.removeChild(coordinateCard.firstChild);
-          }
+          coordinateCard.innerHTML =
+            "<h2>Find coordinates</h2>" +
+            "<p>Looking up nearby place...</p>" +
+            "<div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) +
+            "<br>Longitude: " + escapeHtml(lng) +
+            "</div>";
 
-          var title = document.createElement("h2");
-          title.textContent = "Find coordinates";
-
-          var intro = document.createElement("p");
-          intro.textContent = "Use these numbers in the Google Form for this spot:";
-
-          var box = document.createElement("div");
-          box.className = "coordinate-box";
-          box.innerHTML = "Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng);
-
-          var br = document.createElement("br");
-
-          var copyButton = document.createElement("button");
-          copyButton.className = "small-button";
-          copyButton.type = "button";
-          copyButton.textContent = "Copy coordinates";
-          copyButton.addEventListener("click", function () {
-            var text = lat + ", " + lng;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(text).catch(function () {});
-            }
-            copyButton.textContent = "Copied";
-            setTimeout(function () {
-              copyButton.textContent = "Copy coordinates";
-            }, 1200);
+          fetch(
+            "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" +
+            encodeURIComponent(lat) +
+            "&lon=" +
+            encodeURIComponent(lng) +
+            "&zoom=18&addressdetails=1"
+          )
+          .then(function(response) {
+            if (!response.ok) throw new Error("Place lookup failed.");
+            return response.json();
+          })
+          .then(function(data) {
+            var placeName = getBestPlaceName(data);
+            renderCoordinateResult(placeName, lat, lng, false);
+          })
+          .catch(function(error) {
+            console.error(error);
+            renderCoordinateResult("Could not find a nearby place name", lat, lng, true);
           });
+        }
 
-          var tip = document.createElement("p");
-          tip.className = "empty-message";
-          tip.textContent = "Tip: paste the first number into Latitude and the second number into Longitude.";
+        function getBestPlaceName(data) {
+          if (!data) return "Unknown location";
+          if (data.name) return data.name;
 
-          coordinateCard.appendChild(title);
-          coordinateCard.appendChild(intro);
-          coordinateCard.appendChild(box);
-          coordinateCard.appendChild(br);
-          coordinateCard.appendChild(copyButton);
-          coordinateCard.appendChild(tip);
+          var address = data.address || {};
+          var parts = [];
+
+          if (address.park) parts.push(address.park);
+          if (address.leisure) parts.push(address.leisure);
+          if (address.amenity) parts.push(address.amenity);
+          if (address.tourism) parts.push(address.tourism);
+          if (address.road) parts.push(address.road);
+          if (address.neighbourhood) parts.push(address.neighbourhood);
+          if (address.city) parts.push(address.city);
+          if (address.town) parts.push(address.town);
+          if (address.village) parts.push(address.village);
+
+          if (parts.length > 0) return parts.slice(0, 3).join(", ");
+          if (data.display_name) return data.display_name.split(",").slice(0, 3).join(",").trim();
+          return "Unknown location";
+        }
+
+        function renderCoordinateResult(placeName, lat, lng, lookupFailed) {
+          coordinateCard.innerHTML =
+            "<h2>Find coordinates</h2>" +
+            "<p><strong>Nearby place:</strong> " + escapeHtml(placeName) + "</p>" +
+            "<div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) +
+            "<br>Longitude: " + escapeHtml(lng) +
+            "</div><br>" +
+            "<button class=\"small-button\" id=\"copyCoordinatesButton\" type=\"button\">Copy coordinates</button>" +
+            (lookupFailed ? "<p class=\"empty-message\">The coordinates still work. The place-name lookup just did not find a local label.</p>" : "<p class=\"empty-message\">Tip: paste the first number into Latitude and the second number into Longitude.</p>");
+
+          var copyButton = document.getElementById("copyCoordinatesButton");
+          if (copyButton) {
+            copyButton.addEventListener("click", function () {
+              var text = lat + ", " + lng;
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(function () {});
+              }
+              copyButton.textContent = "Copied";
+              setTimeout(function () {
+                copyButton.textContent = "Copy coordinates";
+              }, 1200);
+            });
+          }
         }
 
         async function loadCountyBoundary() {
