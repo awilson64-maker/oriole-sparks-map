@@ -128,37 +128,6 @@
       background: #ddd;
     }
 
-    .click-info-card {
-      margin-top: 1rem;
-      background: #fffaf0;
-      border: 1px solid var(--border);
-      border-left: 6px solid var(--spark-orange);
-      border-radius: 14px;
-      padding: 1rem;
-      box-shadow: 0 4px 16px var(--shadow);
-      min-height: 110px;
-    }
-
-    .click-info-card h2 {
-      margin: 0 0 0.5rem;
-      color: var(--spark-orange);
-    }
-
-    .click-info-card p {
-      margin: 0.35rem 0;
-      line-height: 1.4;
-    }
-
-    .coord-copy {
-      font-family: Consolas, Monaco, monospace;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.5rem;
-      display: inline-block;
-      margin-top: 0.25rem;
-    }
-
     .coordinate-card {
       margin-top: 1rem;
       background: #fffaf0;
@@ -198,9 +167,7 @@
       cursor: pointer;
     }
 
-    .small-button:hover {
-      background: #1f5f25;
-    }
+    .small-button:hover { background: #1f5f25; }
 
     .details-card {
       margin-top: 1rem;
@@ -239,7 +206,6 @@
     }
   </style>
 </head>
-
 <body>
   <header>
     <div class="branding">
@@ -261,11 +227,6 @@
     </section>
 
     <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
-
-    <section class="click-info-card" id="clickInfoCard">
-      <h2>Explore a spot</h2>
-      <p>Click anywhere on the map to see the latitude, longitude, and nearby place name.</p>
-    </section>
 
     <section class="coordinate-card" id="coordinateCard">
       <h2>Find coordinates</h2>
@@ -291,7 +252,6 @@
       var statusEl = document.getElementById("status");
       var detailsCard = document.getElementById("detailsCard");
       var coordinateCard = document.getElementById("coordinateCard");
-      var clickInfoCard = document.getElementById("clickInfoCard");
 
       function setStatus(message) {
         statusEl.textContent = message;
@@ -329,101 +289,11 @@
         map.on("click", function (event) {
           showCoordinates(event.latlng);
         });
-        var clickedSpotMarker = null;
-        var reverseLookupCache = {};
-        var lastReverseLookupTime = 0;
-
-        map.on("click", function (event) {
-          handleMapClick(event.latlng);
-        });
 
         setTimeout(function () { map.invalidateSize(); }, 250);
 
         loadCountyBoundary();
         loadSubmissions();
-
-        async function handleMapClick(latlng) {
-          var lat = latlng.lat.toFixed(6);
-          var lng = latlng.lng.toFixed(6);
-          var cacheKey = lat + "," + lng;
-
-          if (clickedSpotMarker) {
-            clickedSpotMarker.setLatLng(latlng);
-          } else {
-            clickedSpotMarker = L.circleMarker(latlng, {
-              radius: 8,
-              color: "#ef6c00",
-              weight: 3,
-              fillColor: "#f4b400",
-              fillOpacity: 0.85
-            }).addTo(map);
-          }
-
-          showClickInfo("Looking up this spot...", lat, lng, "");
-
-          if (reverseLookupCache[cacheKey]) {
-            showClickInfo(reverseLookupCache[cacheKey], lat, lng, "");
-            return;
-          }
-
-          var now = Date.now();
-          if (now - lastReverseLookupTime < 1100) {
-            showClickInfo("Coordinates selected. Place lookup paused for a moment so we do not overload the free map service.", lat, lng, "Try clicking again in a second.");
-            return;
-          }
-
-          lastReverseLookupTime = now;
-
-          try {
-            var url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1";
-            var response = await fetch(url, {
-              headers: {
-                "Accept": "application/json"
-              }
-            });
-
-            if (!response.ok) throw new Error("Place lookup failed.");
-
-            var data = await response.json();
-            var placeName = getBestPlaceName(data);
-            reverseLookupCache[cacheKey] = placeName;
-            showClickInfo(placeName, lat, lng, "");
-          } catch (error) {
-            console.error(error);
-            showClickInfo("Coordinates selected. No nearby place name was found.", lat, lng, "");
-          }
-        }
-
-        function showClickInfo(placeName, lat, lng, note) {
-          clickInfoCard.innerHTML =
-            "<h2>Explore a spot</h2>" +
-            "<p><strong>Nearby place:</strong> " + escapeHtml(placeName || "Unknown spot") + "</p>" +
-            "<p><strong>Coordinates:</strong></p>" +
-            "<div class=\"coord-copy\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div>" +
-            (note ? "<p class=\"empty-message\">" + escapeHtml(note) + "</p>" : "");
-        }
-
-        function getBestPlaceName(data) {
-          if (!data) return "Unknown spot";
-          if (data.name) return data.name;
-
-          var address = data.address || {};
-          var parts = [];
-
-          if (address.park) parts.push(address.park);
-          if (address.leisure) parts.push(address.leisure);
-          if (address.amenity) parts.push(address.amenity);
-          if (address.tourism) parts.push(address.tourism);
-          if (address.road) parts.push(address.road);
-          if (address.neighbourhood) parts.push(address.neighbourhood);
-          if (address.city) parts.push(address.city);
-          if (address.town) parts.push(address.town);
-          if (address.village) parts.push(address.village);
-
-          if (parts.length > 0) return parts.slice(0, 3).join(", ");
-          if (data.display_name) return data.display_name.split(",").slice(0, 3).join(",").trim();
-          return "Unknown spot";
-        }
 
         function showCoordinates(latlng) {
           var lat = latlng.lat.toFixed(6);
@@ -456,9 +326,7 @@
                 navigator.clipboard.writeText(text);
               }
               copyButton.textContent = "Copied";
-              setTimeout(function () {
-                copyButton.textContent = "Copy coordinates";
-              }, 1200);
+              setTimeout(function () { copyButton.textContent = "Copy coordinates"; }, 1200);
             });
           }
         }
