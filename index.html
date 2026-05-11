@@ -205,261 +205,272 @@
   </main>
 
   <script>
-    const GOOGLE_FORM_URL = "https://forms.gle/REPLACE_WITH_YOUR_FORM_LINK";
-    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
+    document.addEventListener("DOMContentLoaded", function () {
+      const GOOGLE_FORM_URL = "https://forms.gle/REPLACE_WITH_YOUR_FORM_LINK";
+      const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
+      const COUNTY_FIPS = "55039";
+      const COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
 
-    const COUNTY_FIPS = "55039";
-    const COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
+      const submitLink = document.getElementById("submitLink");
+      const statusEl = document.getElementById("status");
+      const detailsCard = document.getElementById("detailsCard");
 
-    const submitLink = document.getElementById("submitLink");
-    const statusEl = document.getElementById("status");
-    const detailsCard = document.getElementById("detailsCard");
+      function setStatus(message) {
+        statusEl.textContent = message;
+      }
 
-    submitLink.href = GOOGLE_FORM_URL;
-    statusEl.textContent = "JavaScript started. Loading map library...";
-
-    function setStatus(message) {
-      statusEl.textContent = message;
-    }
-
-    window.addEventListener("error", event => {
-      console.error("App error:", event.message, event.error);
-      setStatus("Map error: " + event.message);
-    });
-
-    window.addEventListener("unhandledrejection", event => {
-      console.error("Promise error:", event.reason);
-      setStatus("Data loading error. Open the browser console for details.");
-    });
-
-    if (typeof L === "undefined") {
-      throw new Error("Leaflet map library did not load. Try refreshing or check internet/CDN access.");
-    }
-
-    statusEl.textContent = "Map library loaded. Building map...";
-
-    const fdlBounds = L.latLngBounds([43.49, -88.90], [43.98, -88.14]);
-
-    const map = L.map("map", {
-      maxBounds: fdlBounds.pad(0.3),
-      maxBoundsViscosity: 0.85,
-      minZoom: 9,
-      maxZoom: 18
-    });
-
-    map.fitBounds(fdlBounds);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-
-    const boundaryLayer = L.layerGroup().addTo(map);
-    const maskLayer = L.layerGroup().addTo(map);
-    const markerLayer = L.layerGroup().addTo(map);
-
-    async function loadCountyBoundary() {
       try {
-        const response = await fetch(COUNTY_GEOJSON_URL);
-        if (!response.ok) throw new Error("County boundary request failed.");
+        submitLink.href = GOOGLE_FORM_URL;
+        setStatus("JavaScript started. Loading map...");
 
-        const geojson = await response.json();
-        const countyFeature = geojson.features.find(feature => String(feature.id) === COUNTY_FIPS);
-        if (!countyFeature) throw new Error("Fond du Lac County boundary not found.");
-
-        drawCountyBoundary(countyFeature);
-      } catch (error) {
-        console.error(error);
-        setStatus("County boundary did not load, but submissions may still work.");
-      }
-    }
-
-    function drawCountyBoundary(feature) {
-      boundaryLayer.clearLayers();
-      maskLayer.clearLayers();
-
-      const county = L.geoJSON(feature, {
-        style: {
-          color: "#2e7d32",
-          weight: 4,
-          opacity: 1,
-          fillColor: "#ffffff",
-          fillOpacity: 0.05
+        if (typeof L === "undefined") {
+          setStatus("Leaflet did not load. Try refreshing the page.");
+          return;
         }
-      }).addTo(boundaryLayer);
 
-      county.bindTooltip("Fond du Lac County", { sticky: true });
+        const fdlBounds = L.latLngBounds([43.49, -88.90], [43.98, -88.14]);
 
-      const bounds = county.getBounds();
-      map.fitBounds(bounds.pad(0.08));
-      map.setMaxBounds(bounds.pad(0.35));
-
-      drawOutsideCountyMask(feature);
-    }
-
-    function drawOutsideCountyMask(feature) {
-      const worldOuterRing = [[90, -180], [90, 180], [-90, 180], [-90, -180]];
-      const countyHoles = getCountyOuterRings(feature).map(ring => ring.map(coord => [coord[1], coord[0]]));
-
-      L.polygon([worldOuterRing, ...countyHoles], {
-        stroke: false,
-        fillColor: "#f8f6ef",
-        fillOpacity: 0.78,
-        interactive: false
-      }).addTo(maskLayer);
-    }
-
-    function getCountyOuterRings(feature) {
-      const geometry = feature.geometry;
-      if (!geometry) return [];
-      if (geometry.type === "Polygon") return [geometry.coordinates[0]];
-      if (geometry.type === "MultiPolygon") return geometry.coordinates.map(polygon => polygon[0]);
-      return [];
-    }
-
-    async function loadSubmissions() {
-      try {
-        setStatus("Loading approved submissions from Google Sheet...");
-
-        const response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now());
-        if (!response.ok) throw new Error("Google Sheet CSV request failed.");
-
-        const csvText = await response.text();
-        console.log("CSV text:", csvText);
-
-        const rows = parseCsv(csvText);
-        console.log("Parsed rows:", rows);
-
-        const submissions = rows.map(row => ({
-          firstName: getCell(row, ["First Name", "first name", "Name"]),
-          placeName: getCell(row, ["Place Name", "place name", "Place"]),
-          description: getCell(row, ["Description", "description"]),
-          latitude: getCell(row, ["Latitude", "latitude", "Lat"]),
-          longitude: getCell(row, ["Longitude", "longitude", "Long", "Lng"]),
-          imageUrl: getCell(row, ["Image URL", "image url", "Image", "Photo"]),
-          approved: getCell(row, ["Approved", "approved"])
-        }));
-
-        console.log("Submissions:", submissions);
-        addMarkers(submissions);
-      } catch (error) {
-        console.error(error);
-        setStatus("Could not load Google Sheet data: " + error.message);
-      }
-    }
-
-    function getCell(row, possibleHeaders) {
-      for (const header of possibleHeaders) {
-        if (row[header] !== undefined) return row[header];
-      }
-      return "";
-    }
-
-    function addMarkers(submissions) {
-      markerLayer.clearLayers();
-
-      const approved = submissions.filter(item => {
-        const approvalValue = String(item.approved || "").trim().toLowerCase();
-        const isApproved = ["yes", "y", "true", "1"].includes(approvalValue);
-        const lat = Number(String(item.latitude || "").trim());
-        const lng = Number(String(item.longitude || "").trim());
-        return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
-      });
-
-      approved.forEach(item => {
-        const lat = Number(String(item.latitude || "").trim());
-        const lng = Number(String(item.longitude || "").trim());
-        const marker = L.marker([lat, lng]).addTo(markerLayer);
-        marker.bindPopup(`<strong>${escapeHtml(item.placeName || "Favorite Place")}</strong><br>Submitted by ${escapeHtml(item.firstName || "Student")}`);
-        marker.on("click", () => showDetails(item));
-      });
-
-      setStatus(`${approved.length} approved submission${approved.length === 1 ? "" : "s"} on the map. ${submissions.length} total row${submissions.length === 1 ? "" : "s"} loaded from the Sheet.`);
-    }
-
-    function showDetails(item) {
-      const safeFirstName = escapeHtml(item.firstName || "Student");
-      const safePlaceName = escapeHtml(item.placeName || "Favorite Place");
-      const safeDescription = escapeHtml(item.description || "No description provided.");
-      const imageHtml = item.imageUrl
-        ? `<img class="submission-image" src="${escapeAttribute(item.imageUrl)}" alt="Photo submitted for ${safePlaceName}" />`
-        : `<p class="empty-message">No photo has been added for this submission yet.</p>`;
-
-      detailsCard.innerHTML = `
-        <h2>${safePlaceName}</h2>
-        <p><strong>Submitted by:</strong> ${safeFirstName}</p>
-        <p>${safeDescription}</p>
-        ${imageHtml}
-      `;
-    }
-
-    function parseCsv(csvText) {
-      const rows = [];
-      let currentRow = [];
-      let currentCell = "";
-      let insideQuotes = false;
-
-      for (let i = 0; i < csvText.length; i++) {
-        const char = csvText[i];
-        const nextChar = csvText[i + 1];
-
-        if (char === '"' && insideQuotes && nextChar === '"') {
-          currentCell += '"';
-          i++;
-        } else if (char === '"') {
-          insideQuotes = !insideQuotes;
-        } else if (char === ',' && !insideQuotes) {
-          currentRow.push(currentCell);
-          currentCell = "";
-        } else if ((char === "
-" || char === "
-") && !insideQuotes) {
-          if (char === "
-" && nextChar === "
-") i++;
-          currentRow.push(currentCell);
-          rows.push(currentRow);
-          currentRow = [];
-          currentCell = "";
-        } else {
-          currentCell += char;
-        }
-      }
-
-      if (currentCell || currentRow.length) {
-        currentRow.push(currentCell);
-        rows.push(currentRow);
-      }
-
-      const headers = (rows.shift() || []).map(header => String(header || "").replace(/^﻿/, "").trim());
-      return rows
-        .filter(row => row.some(cell => String(cell || "").trim() !== ""))
-        .map(row => {
-          const record = {};
-          headers.forEach((header, index) => {
-            record[header] = row[index] ? String(row[index]).trim() : "";
-          });
-          return record;
+        const map = L.map("map", {
+          maxBounds: fdlBounds.pad(0.3),
+          maxBoundsViscosity: 0.85,
+          minZoom: 9,
+          maxZoom: 18
         });
-    }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+        map.fitBounds(fdlBounds);
 
-    function escapeAttribute(value) {
-      return escapeHtml(value).replaceAll("`", "&#096;");
-    }
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
 
-    setTimeout(() => map.invalidateSize(), 250);
-    statusEl.textContent = "Map built. Loading county boundary and Sheet data...";
-    loadCountyBoundary();
-    loadSubmissions();
+        const boundaryLayer = L.layerGroup().addTo(map);
+        const maskLayer = L.layerGroup().addTo(map);
+        const markerLayer = L.layerGroup().addTo(map);
+
+        setTimeout(function () {
+          map.invalidateSize();
+        }, 250);
+
+        loadCountyBoundary();
+        loadSubmissions();
+
+        async function loadCountyBoundary() {
+          try {
+            const response = await fetch(COUNTY_GEOJSON_URL);
+            if (!response.ok) throw new Error("County boundary request failed.");
+
+            const geojson = await response.json();
+            const countyFeature = geojson.features.find(function (feature) {
+              return String(feature.id) === COUNTY_FIPS;
+            });
+            if (!countyFeature) throw new Error("Fond du Lac County boundary not found.");
+
+            drawCountyBoundary(countyFeature);
+          } catch (error) {
+            console.error(error);
+            setStatus("County boundary did not load, but trying Sheet data...");
+          }
+        }
+
+        function drawCountyBoundary(feature) {
+          boundaryLayer.clearLayers();
+          maskLayer.clearLayers();
+
+          const county = L.geoJSON(feature, {
+            style: {
+              color: "#2e7d32",
+              weight: 4,
+              opacity: 1,
+              fillColor: "#ffffff",
+              fillOpacity: 0.05
+            }
+          }).addTo(boundaryLayer);
+
+          county.bindTooltip("Fond du Lac County", { sticky: true });
+
+          const bounds = county.getBounds();
+          map.fitBounds(bounds.pad(0.08));
+          map.setMaxBounds(bounds.pad(0.35));
+
+          drawOutsideCountyMask(feature);
+        }
+
+        function drawOutsideCountyMask(feature) {
+          const worldOuterRing = [[90, -180], [90, 180], [-90, 180], [-90, -180]];
+          const countyHoles = getCountyOuterRings(feature).map(function (ring) {
+            return ring.map(function (coord) {
+              return [coord[1], coord[0]];
+            });
+          });
+
+          L.polygon([worldOuterRing].concat(countyHoles), {
+            stroke: false,
+            fillColor: "#f8f6ef",
+            fillOpacity: 0.78,
+            interactive: false
+          }).addTo(maskLayer);
+        }
+
+        function getCountyOuterRings(feature) {
+          const geometry = feature.geometry;
+          if (!geometry) return [];
+          if (geometry.type === "Polygon") return [geometry.coordinates[0]];
+          if (geometry.type === "MultiPolygon") {
+            return geometry.coordinates.map(function (polygon) {
+              return polygon[0];
+            });
+          }
+          return [];
+        }
+
+        async function loadSubmissions() {
+          try {
+            setStatus("Loading approved submissions from Google Sheet...");
+
+            const response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now());
+            if (!response.ok) throw new Error("Google Sheet CSV request failed.");
+
+            const csvText = await response.text();
+            const rows = parseCsv(csvText);
+
+            const submissions = rows.map(function (row) {
+              return {
+                firstName: getCell(row, ["First Name", "first name", "Name"]),
+                placeName: getCell(row, ["Place Name", "place name", "Place"]),
+                description: getCell(row, ["Description", "description"]),
+                latitude: getCell(row, ["Latitude", "latitude", "Lat"]),
+                longitude: getCell(row, ["Longitude", "longitude", "Long", "Lng"]),
+                imageUrl: getCell(row, ["Image URL", "image url", "Image", "Photo"]),
+                approved: getCell(row, ["Approved", "approved"])
+              };
+            });
+
+            addMarkers(submissions);
+          } catch (error) {
+            console.error(error);
+            setStatus("Could not load Google Sheet data: " + error.message);
+          }
+        }
+
+        function getCell(row, possibleHeaders) {
+          for (let i = 0; i < possibleHeaders.length; i++) {
+            const header = possibleHeaders[i];
+            if (row[header] !== undefined) return row[header];
+          }
+          return "";
+        }
+
+        function addMarkers(submissions) {
+          markerLayer.clearLayers();
+
+          const approved = submissions.filter(function (item) {
+            const approvalValue = String(item.approved || "").trim().toLowerCase();
+            const isApproved = ["yes", "y", "true", "1"].includes(approvalValue);
+            const lat = Number(String(item.latitude || "").trim());
+            const lng = Number(String(item.longitude || "").trim());
+            return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
+          });
+
+          approved.forEach(function (item) {
+            const lat = Number(String(item.latitude || "").trim());
+            const lng = Number(String(item.longitude || "").trim());
+            const marker = L.marker([lat, lng]).addTo(markerLayer);
+            marker.bindPopup("<strong>" + escapeHtml(item.placeName || "Favorite Place") + "</strong><br>Submitted by " + escapeHtml(item.firstName || "Student"));
+            marker.on("click", function () {
+              showDetails(item);
+            });
+          });
+
+          setStatus(approved.length + " approved submission" + (approved.length === 1 ? "" : "s") + " on the map. " + submissions.length + " total row" + (submissions.length === 1 ? "" : "s") + " loaded from the Sheet.");
+        }
+
+        function showDetails(item) {
+          const safeFirstName = escapeHtml(item.firstName || "Student");
+          const safePlaceName = escapeHtml(item.placeName || "Favorite Place");
+          const safeDescription = escapeHtml(item.description || "No description provided.");
+          const imageHtml = item.imageUrl
+            ? "<img class=\"submission-image\" src=\"" + escapeAttribute(item.imageUrl) + "\" alt=\"Photo submitted for " + safePlaceName + "\" />"
+            : "<p class=\"empty-message\">No photo has been added for this submission yet.</p>";
+
+          detailsCard.innerHTML =
+            "<h2>" + safePlaceName + "</h2>" +
+            "<p><strong>Submitted by:</strong> " + safeFirstName + "</p>" +
+            "<p>" + safeDescription + "</p>" +
+            imageHtml;
+        }
+
+        function parseCsv(csvText) {
+          const rows = [];
+          let currentRow = [];
+          let currentCell = "";
+          let insideQuotes = false;
+
+          for (let i = 0; i < csvText.length; i++) {
+            const char = csvText[i];
+            const nextChar = csvText[i + 1];
+
+            if (char === '"' && insideQuotes && nextChar === '"') {
+              currentCell += '"';
+              i++;
+            } else if (char === '"') {
+              insideQuotes = !insideQuotes;
+            } else if (char === ',' && !insideQuotes) {
+              currentRow.push(currentCell);
+              currentCell = "";
+            } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+              if (char === "\r" && nextChar === "\n") i++;
+              currentRow.push(currentCell);
+              rows.push(currentRow);
+              currentRow = [];
+              currentCell = "";
+            } else {
+              currentCell += char;
+            }
+          }
+
+          if (currentCell || currentRow.length) {
+            currentRow.push(currentCell);
+            rows.push(currentRow);
+          }
+
+          const headerRow = rows.shift() || [];
+          const headers = headerRow.map(function (header) {
+            return String(header || "").replace(/^\uFEFF/, "").trim();
+          });
+
+          return rows
+            .filter(function (row) {
+              return row.some(function (cell) {
+                return String(cell || "").trim() !== "";
+              });
+            })
+            .map(function (row) {
+              const record = {};
+              headers.forEach(function (header, index) {
+                record[header] = row[index] ? String(row[index]).trim() : "";
+              });
+              return record;
+            });
+        }
+
+        function escapeHtml(value) {
+          return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
+
+        function escapeAttribute(value) {
+          return escapeHtml(value).replaceAll("`", "&#096;");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus("Startup error: " + error.message);
+      }
+    });
   </script>
 </body>
 </html>
