@@ -338,10 +338,10 @@
               return {
                 firstName: getCell(row, ["First Name", "first name", "Name"]),
                 placeName: getCell(row, ["Place Name", "place name", "Place"]),
-                description: getCell(row, ["Description", "description"]),
+                description: getCell(row, ["Description", "description", "Why is this place special to you?"]),
                 latitude: getCell(row, ["Latitude", "latitude", "Lat"]),
                 longitude: getCell(row, ["Longitude", "longitude", "Long", "Lng"]),
-                imageUrl: getCell(row, ["Image URL", "image url", "Image", "Photo"]),
+                imageUrl: getCell(row, ["Image URL", "image url", "Image", "Photo", "Upload a Photo", "Link to Photo", "link to photo"]),
                 approved: getCell(row, ["Approved", "approved"])
               };
             });
@@ -418,8 +418,12 @@
             } else if (char === ',' && !insideQuotes) {
               currentRow.push(currentCell);
               currentCell = "";
-            } else if ((char === "\n" || char === "\r") && !insideQuotes) {
-              if (char === "\r" && nextChar === "\n") i++;
+            } else if ((char === "
+" || char === "
+") && !insideQuotes) {
+              if (char === "
+" && nextChar === "
+") i++;
               currentRow.push(currentCell);
               rows.push(currentRow);
               currentRow = [];
@@ -436,7 +440,7 @@
 
           const headerRow = rows.shift() || [];
           const headers = headerRow.map(function (header) {
-            return String(header || "").replace(/^\uFEFF/, "").trim();
+            return String(header || "").replace(/^﻿/, "").trim();
           });
 
           return rows
