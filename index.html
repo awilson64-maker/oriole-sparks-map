@@ -422,68 +422,38 @@
       statusEl.textContent = `${approved.length} approved submission${approved.length === 1 ? "" : "s"} on the map.`;
     }
 
-    function loadSubmissions() {
-      statusEl.textContent = "Loading approved submissions from Google Sheet...";
-
-      const callbackName = "handleGoogleSheetResponse";
-      window[callbackName] = handleGoogleSheetResponse;
-
-      const script = document.createElement("script");
-      script.src = GOOGLE_SHEET_GVIZ_URL + "&headers=1&cacheBust=" + Date.now();
-      script.onerror = () => {
-        statusEl.textContent = "Could not load Google Sheet. Showing sample submissions.";
+    async function loadSubmissions() {
+      if (!GOOGLE_SHEET_CSV_URL) {
         addMarkers(SAMPLE_SUBMISSIONS);
-      };
-      document.body.appendChild(script);
-    }
+        statusEl.textContent = "Using sample submissions. Connect a Google Sheet when ready.";
+        return;
+      }
 
-    function handleGoogleSheetResponse(response) {
       try {
-        if (!response || !response.table || !response.table.rows) {
-          throw new Error("Google Sheet response was empty or invalid.");
-        }
+        statusEl.textContent = "Loading approved submissions from Google Sheet...";
 
-        let headers = response.table.cols.map(col => (col.label || "").trim());
-        let dataRows = response.table.rows;
+        const response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now());
+        if (!response.ok) throw new Error("Sheet could not be loaded.");
 
-        const headersMissing = headers.length === 0 || headers.every(header => !header || /^Col[0-9]+$/i.test(header));
+        const csvText = await response.text();
+        const rows = parseCsv(csvText);
 
-        if (headersMissing && dataRows.length > 0) {
-          headers = dataRows[0].c.map(cell => {
-            return cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : "";
-          });
-          dataRows = dataRows.slice(1);
-        }
-
-        const submissions = dataRows.map(row => {
-          const record = {};
-
-          headers.forEach((header, index) => {
-            const cell = row.c[index];
-            record[normalizeHeader(header)] = cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : "";
-          });
-
-          return {
-            firstName: record["first name"] || record["name"] || "",
-            placeName: record["place name"] || record["place"] || "",
-            description: record["description"] || "",
-            latitude: record["latitude"] || record["lat"] || "",
-            longitude: record["longitude"] || record["long"] || record["lng"] || "",
-            imageUrl: record["image url"] || record["image"] || record["photo"] || "",
-            approved: record["approved"] || ""
-          };
-        });
+        const submissions = rows.map(row => ({
+          firstName: row["First Name"] || row["first name"] || row["Name"] || "",
+          placeName: row["Place Name"] || row["place name"] || row["Place"] || "",
+          description: row["Description"] || row["description"] || "",
+          latitude: row["Latitude"] || row["latitude"] || row["Lat"] || "",
+          longitude: row["Longitude"] || row["longitude"] || row["Long"] || row["Lng"] || "",
+          imageUrl: row["Image URL"] || row["image url"] || row["Image"] || row["Photo"] || "",
+          approved: row["Approved"] || row["approved"] || ""
+        }));
 
         addMarkers(submissions);
       } catch (error) {
         console.error(error);
-        statusEl.textContent = "Google Sheet loaded, but the data could not be read. Showing sample submissions.";
+        statusEl.textContent = "Could not load Google Sheet. Showing sample submissions.";
         addMarkers(SAMPLE_SUBMISSIONS);
       }
-    }
-
-    function normalizeHeader(header) {
-      return String(header || "").trim().toLowerCase();
     }
 
     // Simple CSV parser that handles quoted commas.
