@@ -206,7 +206,7 @@
 
   <script>
     const GOOGLE_FORM_URL = "https://forms.gle/REPLACE_WITH_YOUR_FORM_LINK";
-    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFUBtLW6dsmfQ00SV_AOkGV2LcWuo4lk81Bnq1X-muhzHXqyWNs7K4s-RWBTD8oLhLNb72UT-roOhl/pub?output=csv";
+    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
 
     const COUNTY_FIPS = "55039";
     const COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
@@ -404,8 +404,12 @@
         } else if (char === ',' && !insideQuotes) {
           currentRow.push(currentCell);
           currentCell = "";
-        } else if ((char === "\n" || char === "\r") && !insideQuotes) {
-          if (char === "\r" && nextChar === "\n") i++;
+        } else if ((char === "
+" || char === "
+") && !insideQuotes) {
+          if (char === "
+" && nextChar === "
+") i++;
           currentRow.push(currentCell);
           rows.push(currentRow);
           currentRow = [];
@@ -420,7 +424,7 @@
         rows.push(currentRow);
       }
 
-      const headers = (rows.shift() || []).map(header => String(header || "").replace(/^\uFEFF/, "").trim());
+      const headers = (rows.shift() || []).map(header => String(header || "").replace(/^﻿/, "").trim());
       return rows
         .filter(row => row.some(cell => String(cell || "").trim() !== ""))
         .map(row => {
