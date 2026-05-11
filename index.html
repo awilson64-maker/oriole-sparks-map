@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fond du Lac County Favorite Places Map</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root {
+      --spark-green: #2e7d32;
+      --spark-light-green: #4caf50;
+      --spark-gold: #f4b400;
+      --spark-orange: #ef6c00;
+      --spark-blue: #1565c0;
+      --spark-cream: #f8f6ef;
+      --text: #222;
+      --muted: #666;
+      --border: #ddd;
+      --card: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: var(--spark-cream);
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--spark-green), var(--spark-blue));
+      color: white;
+      padding: 1.25rem;
+      text-align: center;
+    }
+
+    .branding {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .spark-title {
+      text-align: left;
+    }
+
+    .spark-title .small {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .spark-title .big {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    .clover {
+      width: 78px;
+      height: 78px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 4vw, 2.25rem);
+    }
+
+    header p {
+      margin: 0.5rem auto 0;
+      max-width: 760px;
+      line-height: 1.4;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .button {
+      display: inline-block;
+      background: var(--spark-orange);
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      background: #c25a00;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    #map {
+      height: 560px;
+      width: 100%;
+      position: relative;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      background: #ddd;
+    }
+
+    .details-card {
+      margin-top: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+      min-height: 140px;
+    }
+
+    .details-card h2 {
+      margin: 0 0 0.5rem;
+      color: var(--spark-green);
+    }
+
+    .details-card p {
+      line-height: 1.45;
+    }
+
+    .submission-image {
+      display: block;
+      max-width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      margin-top: 0.75rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .empty-message {
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .leaflet-popup-content {
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="branding">
+      <div class="logo-wrap">
+        <img
+          class="clover"
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQ3tcWNyu80tnJAFweLCtFkHkiJPzopWp8vA&amp;s"
+          alt="4-H logo"
+        />
+
+        <div class="spark-title">
+          <div class="small">Fond du Lac County 4-H</div>
+          <div class="big">Oriole Sparks</div>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      Students in Oriole Sparks are mapping favorite places across Fond du Lac County and sharing what makes those places special to them.
+    </p>
+  </header>
+
+  <main>
+    <section class="top-actions">
+      <a class="button" id="submitLink" href="#" target="_blank" rel="noopener">Submit a Favorite Place</a>
+      <div class="status" id="status">Loading map submissions...</div>
+    </section>
+
+    <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
+
+    <section class="details-card" id="detailsCard">
+      <h2>Click a dot on the map</h2>
+      <p class="empty-message">When you click a student submission, the photo and details will appear here.</p>
+    </section>
+
+    <p class="footer-note">
+      Privacy note: submissions should use first names only and should focus on public or community places, not private home addresses.
+    </p>
+  </main>
+
+  <script>
+    window.addEventListener("error", event => {
+      console.error("Preview/app error:", event.message, event.error);
+    });
+
+    window.addEventListener("unhandledrejection", event => {
+      console.error("Preview/app promise error:", event.reason);
+    });
+    // STEP 1: Replace this with Misty's Google Form public link.
+    const GOOGLE_FORM_URL = "https://forms.gle/REPLACE_WITH_YOUR_FORM_LINK";
+
+    // Google Sheet published-to-web links.
+    // CSV works when hosted online. GViz/JSONP works better when opening this file directly from your computer.
+    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFUBtLW6dsmfQ00SV_AOkGV2LcWuo4lk81Bnq1X-muhzHXqyWNs7K4s-RWBTD8oLhLNb72UT-roOhl/pub?output=csv";
+    const GOOGLE_SHEET_GVIZ_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFUBtLW6dsmfQ00SV_AOkGV2LcWuo4lk81Bnq1X-muhzHXqyWNs7K4s-RWBTD8oLhLNb72UT-roOhl/gviz/tq?tqx=out:json;responseHandler:handleGoogleSheetResponse";
+
+    // Temporary sample data so the map works before Google Sheets is connected.
+    const SAMPLE_SUBMISSIONS = [
+      {
+        firstName: "Ava",
+        placeName: "Lakeside Park",
+        description: "I like this place because the lighthouse and lake are really pretty.",
+        latitude: 43.7949,
+        longitude: -88.4381,
+        imageUrl: "",
+        approved: "yes"
+      },
+      {
+        firstName: "Mateo",
+        placeName: "Downtown Fond du Lac",
+        description: "This is one of my favorite places because there are cool buildings and places to eat.",
+        latitude: 43.7730,
+        longitude: -88.4471,
+        imageUrl: "",
+        approved: "yes"
+      },
+      {
+        firstName: "Sofia",
+        placeName: "Kettle Moraine Area",
+        description: "I like being outside and seeing nature here.",
+        latitude: 43.6395,
+        longitude: -88.2205,
+        imageUrl: "",
+        approved: "yes"
+      }
+    ];
+
+    const submitLink = document.getElementById("submitLink");
+    const statusEl = document.getElementById("status");
+    const detailsCard = document.getElementById("detailsCard");
+
+    submitLink.href = GOOGLE_FORM_URL;
+
+    // Fond du Lac County FIPS code: 55039.
+    // Boundary source: public county GeoJSON file. The app filters this down to only Fond du Lac County.
+    const COUNTY_FIPS = "55039";
+    const COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
+
+    // Fond du Lac County approximate fallback bounds, used while the real boundary loads or if it fails.
+    const fdlBounds = L.latLngBounds(
+      [43.49, -88.90],
+      [43.98, -88.14]
+    );
+
+    const map = L.map("map", {
+      maxBounds: fdlBounds,
+      maxBoundsViscosity: 0.85,
+      minZoom: 9,
+      maxZoom: 18
+    });
+
+    map.fitBounds(fdlBounds);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    const boundaryLayer = L.layerGroup().addTo(map);
+    const maskLayer = L.layerGroup().addTo(map);
+    const markerLayer = L.layerGroup().addTo(map);
+
+    function showDetails(item) {
+      const safeFirstName = escapeHtml(item.firstName || "Student");
+      const safePlaceName = escapeHtml(item.placeName || "Favorite Place");
+      const safeDescription = escapeHtml(item.description || "No description provided.");
+      const imageHtml = item.imageUrl
+        ? `<img class="submission-image" src="${escapeAttribute(item.imageUrl)}" alt="Photo submitted for ${safePlaceName}" />`
+        : `<p class="empty-message">No photo has been added for this submission yet.</p>`;
+
+      detailsCard.innerHTML = `
+        <h2>${safePlaceName}</h2>
+        <p><strong>Submitted by:</strong> ${safeFirstName}</p>
+        <p>${safeDescription}</p>
+        ${imageHtml}
+      `;
+    }
+
+    async function loadCountyBoundary() {
+      try {
+        const response = await fetch(COUNTY_GEOJSON_URL);
+        if (!response.ok) throw new Error("County boundary could not be loaded.");
+
+        const geojson = await response.json();
+        const countyFeature = geojson.features.find(feature => String(feature.id) === COUNTY_FIPS);
+        if (!countyFeature) throw new Error("Fond du Lac County boundary not found in GeoJSON.");
+
+        drawCountyBoundary(countyFeature);
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = "County boundary could not be loaded. Showing approximate Fond du Lac County area.";
+      }
+    }
+
+    function drawCountyBoundary(feature) {
+      boundaryLayer.clearLayers();
+      maskLayer.clearLayers();
+
+      const county = L.geoJSON(feature, {
+        style: {
+          color: "#2e7d32",
+          weight: 4,
+          opacity: 1,
+          fillColor: "#ffffff",
+          fillOpacity: 0.05
+        }
+      }).addTo(boundaryLayer);
+
+      county.bindTooltip("Fond du Lac County", {
+        sticky: true
+      });
+
+      const bounds = county.getBounds();
+      map.fitBounds(bounds.pad(0.08));
+      map.setMaxBounds(bounds.pad(0.35));
+
+      drawOutsideCountyMask(feature);
+    }
+
+    function drawOutsideCountyMask(feature) {
+      const worldOuterRing = [
+        [90, -180],
+        [90, 180],
+        [-90, 180],
+        [-90, -180]
+      ];
+
+      const countyHoles = getCountyOuterRings(feature).map(ring => {
+        return ring.map(coord => [coord[1], coord[0]]);
+      });
+
+      L.polygon([worldOuterRing, ...countyHoles], {
+        stroke: false,
+        fillColor: "#f8f6ef",
+        fillOpacity: 0.78,
+        interactive: false
+      }).addTo(maskLayer);
+    }
+
+    function getCountyOuterRings(feature) {
+      const geometry = feature.geometry;
+      if (!geometry) return [];
+
+      if (geometry.type === "Polygon") {
+        return [geometry.coordinates[0]];
+      }
+
+      if (geometry.type === "MultiPolygon") {
+        return geometry.coordinates.map(polygon => polygon[0]);
+      }
+
+      return [];
+    }
+
+    function addMarkers(submissions) {
+      markerLayer.clearLayers();
+
+      const approved = submissions.filter(item => {
+        const isApproved = String(item.approved || "").trim().toLowerCase() === "yes";
+        const lat = Number(item.latitude);
+        const lng = Number(item.longitude);
+        return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
+      });
+
+      approved.forEach(item => {
+        const lat = Number(item.latitude);
+        const lng = Number(item.longitude);
+        const marker = L.marker([lat, lng]).addTo(markerLayer);
+
+        marker.bindPopup(`<strong>${escapeHtml(item.placeName || "Favorite Place")}</strong><br>Submitted by ${escapeHtml(item.firstName || "Student")}`);
+        marker.on("click", () => showDetails(item));
+      });
+
+      statusEl.textContent = `${approved.length} approved submission${approved.length === 1 ? "" : "s"} on the map.`;
+    }
+
+    function loadSubmissions() {
+      statusEl.textContent = "Loading approved submissions from Google Sheet...";
+
+      const callbackName = "handleGoogleSheetResponse";
+      window[callbackName] = handleGoogleSheetResponse;
+
+      const script = document.createElement("script");
+      script.src = GOOGLE_SHEET_GVIZ_URL + "&headers=1&cacheBust=" + Date.now();
+      script.onerror = () => {
+        statusEl.textContent = "Could not load Google Sheet. Showing sample submissions.";
+        addMarkers(SAMPLE_SUBMISSIONS);
+      };
+      document.body.appendChild(script);
+    }
+
+    function handleGoogleSheetResponse(response) {
+      try {
+        if (!response || !response.table || !response.table.rows) {
+          throw new Error("Google Sheet response was empty or invalid.");
+        }
+
+        let headers = response.table.cols.map(col => (col.label || "").trim());
+        let dataRows = response.table.rows;
+
+        const headersMissing = headers.length === 0 || headers.every(header => !header || /^Col[0-9]+$/i.test(header));
+
+        if (headersMissing && dataRows.length > 0) {
+          headers = dataRows[0].c.map(cell => {
+            return cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : "";
+          });
+          dataRows = dataRows.slice(1);
+        }
+
+        const submissions = dataRows.map(row => {
+          const record = {};
+
+          headers.forEach((header, index) => {
+            const cell = row.c[index];
+            record[normalizeHeader(header)] = cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : "";
+          });
+
+          return {
+            firstName: record["first name"] || record["name"] || "",
+            placeName: record["place name"] || record["place"] || "",
+            description: record["description"] || "",
+            latitude: record["latitude"] || record["lat"] || "",
+            longitude: record["longitude"] || record["long"] || record["lng"] || "",
+            imageUrl: record["image url"] || record["image"] || record["photo"] || "",
+            approved: record["approved"] || ""
+          };
+        });
+
+        addMarkers(submissions);
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = "Google Sheet loaded, but the data could not be read. Showing sample submissions.";
+        addMarkers(SAMPLE_SUBMISSIONS);
+      }
+    }
+
+    function normalizeHeader(header) {
+      return String(header || "").trim().toLowerCase();
+    }
+
+    // Simple CSV parser that handles quoted commas.
+    function parseCsv(csvText) {
+      const rows = [];
+      let currentRow = [];
+      let currentCell = "";
+      let insideQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+        const char = csvText[i];
+        const nextChar = csvText[i + 1];
+
+        if (char === '"' && insideQuotes && nextChar === '"') {
+          currentCell += '"';
+          i++;
+        } else if (char === '"') {
+          insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+          currentRow.push(currentCell);
+          currentCell = "";
+        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+          if (char === '\r' && nextChar === '\n') i++;
+          currentRow.push(currentCell);
+          rows.push(currentRow);
+          currentRow = [];
+          currentCell = "";
+        } else {
+          currentCell += char;
+        }
+      }
+
+      if (currentCell || currentRow.length) {
+        currentRow.push(currentCell);
+        rows.push(currentRow);
+      }
+
+      const headers = rows.shift()?.map(header => header.trim()) || [];
+      return rows
+        .filter(row => row.some(cell => String(cell).trim() !== ""))
+        .map(row => {
+          const record = {};
+          headers.forEach((header, index) => {
+            record[header] = row[index] ? row[index].trim() : "";
+          });
+          return record;
+        });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
+
+    // Canvas/browser previews sometimes render the map before the container has its final size.
+    // This forces Leaflet to recalculate so the map tiles line up properly.
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+
+    loadCountyBoundary();
+    loadSubmissions();
+  </script>
+</body>
+</html>
