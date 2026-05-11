@@ -128,6 +128,7 @@
       background: #ddd;
     }
 
+
     .coordinate-card {
       margin-top: 1rem;
       background: #fffaf0;
@@ -229,9 +230,10 @@
 
     <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
 
+
     <section class="coordinate-card" id="coordinateCard">
       <h2>Find coordinates</h2>
-      <p>Click anywhere on the map to get the latitude and longitude for that spot.</p>
+      <p class="empty-message">Click anywhere on the map to get latitude and longitude for that spot.</p>
     </section>
 
     <section class="details-card" id="detailsCard">
@@ -291,10 +293,12 @@
           showCoordinates(event.latlng);
         });
 
+
         setTimeout(function () { map.invalidateSize(); }, 250);
 
         loadCountyBoundary();
         loadSubmissions();
+
 
         function showCoordinates(latlng) {
           var lat = latlng.lat.toFixed(6);
@@ -308,28 +312,52 @@
               color: "#ef6c00",
               weight: 3,
               fillColor: "#f4b400",
-              fillOpacity: 0.85
+              fillOpacity: 0.85,
+              interactive: false
             }).addTo(map);
           }
 
-          coordinateCard.innerHTML =
-            "<h2>Find coordinates</h2>" +
-            "<p>Use these numbers in the Google Form for this spot:</p>" +
-            "<div class='coordinate-box'>Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div><br>" +
-            "<button class='small-button' id='copyCoordinatesButton' type='button'>Copy coordinates</button>" +
-            "<p class='empty-message'>Tip: paste the first number into Latitude and the second number into Longitude.</p>";
-
-          var copyButton = document.getElementById("copyCoordinatesButton");
-          if (copyButton) {
-            copyButton.addEventListener("click", function () {
-              var text = lat + ", " + lng;
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text);
-              }
-              copyButton.textContent = "Copied";
-              setTimeout(function () { copyButton.textContent = "Copy coordinates"; }, 1200);
-            });
+          while (coordinateCard.firstChild) {
+            coordinateCard.removeChild(coordinateCard.firstChild);
           }
+
+          var title = document.createElement("h2");
+          title.textContent = "Find coordinates";
+
+          var intro = document.createElement("p");
+          intro.textContent = "Use these numbers in the Google Form for this spot:";
+
+          var box = document.createElement("div");
+          box.className = "coordinate-box";
+          box.innerHTML = "Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng);
+
+          var br = document.createElement("br");
+
+          var copyButton = document.createElement("button");
+          copyButton.className = "small-button";
+          copyButton.type = "button";
+          copyButton.textContent = "Copy coordinates";
+          copyButton.addEventListener("click", function () {
+            var text = lat + ", " + lng;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).catch(function () {});
+            }
+            copyButton.textContent = "Copied";
+            setTimeout(function () {
+              copyButton.textContent = "Copy coordinates";
+            }, 1200);
+          });
+
+          var tip = document.createElement("p");
+          tip.className = "empty-message";
+          tip.textContent = "Tip: paste the first number into Latitude and the second number into Longitude.";
+
+          coordinateCard.appendChild(title);
+          coordinateCard.appendChild(intro);
+          coordinateCard.appendChild(box);
+          coordinateCard.appendChild(br);
+          coordinateCard.appendChild(copyButton);
+          coordinateCard.appendChild(tip);
         }
 
         async function loadCountyBoundary() {
