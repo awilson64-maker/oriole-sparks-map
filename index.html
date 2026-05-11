@@ -128,6 +128,37 @@
       background: #ddd;
     }
 
+    .click-info-card {
+      margin-top: 1rem;
+      background: #fffaf0;
+      border: 1px solid var(--border);
+      border-left: 6px solid var(--spark-orange);
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: 0 4px 16px var(--shadow);
+      min-height: 110px;
+    }
+
+    .click-info-card h2 {
+      margin: 0 0 0.5rem;
+      color: var(--spark-orange);
+    }
+
+    .click-info-card p {
+      margin: 0.35rem 0;
+      line-height: 1.4;
+    }
+
+    .coord-copy {
+      font-family: Consolas, Monaco, monospace;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem;
+      display: inline-block;
+      margin-top: 0.25rem;
+    }
+
     .details-card {
       margin-top: 1rem;
       background: var(--card);
@@ -188,6 +219,11 @@
 
     <div id="map" aria-label="Map of Fond du Lac County favorite places"></div>
 
+    <section class="click-info-card" id="clickInfoCard">
+      <h2>Explore a spot</h2>
+      <p>Click anywhere on the map to see the latitude, longitude, and nearby place name.</p>
+    </section>
+
     <section class="details-card" id="detailsCard">
       <h2>Click a dot on the map</h2>
       <p class="empty-message">When you click a student submission, the photo and details will appear here.</p>
@@ -198,7 +234,7 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      var GOOGLE_FORM_URL = "https://forms.gle/REPLACE_WITH_YOUR_FORM_LINK";
+      var GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdLCLZdq1ALGVppr9H455-EBvM9QtIM-OkLpKju2TJVEbb9Ig/viewform?usp=publish-editor";
       var GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTlVNBYY1LDV2oyJwYUTMmYYejwlCtKinn0gu2mwp5ezWQ_PibHGU3ZP4taND8OFYNVaN2WXhAN17tt/pub?output=csv";
       var COUNTY_FIPS = "55039";
       var COUNTY_GEOJSON_URL = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json";
@@ -206,6 +242,7 @@
       var submitLink = document.getElementById("submitLink");
       var statusEl = document.getElementById("status");
       var detailsCard = document.getElementById("detailsCard");
+      var clickInfoCard = document.getElementById("clickInfoCard");
 
       function setStatus(message) {
         statusEl.textContent = message;
@@ -238,11 +275,101 @@
         var boundaryLayer = L.layerGroup().addTo(map);
         var maskLayer = L.layerGroup().addTo(map);
         var markerLayer = L.layerGroup().addTo(map);
+        var clickedSpotMarker = null;
+        var reverseLookupCache = {};
+        var lastReverseLookupTime = 0;
+
+        map.on("click", function (event) {
+          handleMapClick(event.latlng);
+        });
 
         setTimeout(function () { map.invalidateSize(); }, 250);
 
         loadCountyBoundary();
         loadSubmissions();
+
+        async function handleMapClick(latlng) {
+          var lat = latlng.lat.toFixed(6);
+          var lng = latlng.lng.toFixed(6);
+          var cacheKey = lat + "," + lng;
+
+          if (clickedSpotMarker) {
+            clickedSpotMarker.setLatLng(latlng);
+          } else {
+            clickedSpotMarker = L.circleMarker(latlng, {
+              radius: 8,
+              color: "#ef6c00",
+              weight: 3,
+              fillColor: "#f4b400",
+              fillOpacity: 0.85
+            }).addTo(map);
+          }
+
+          showClickInfo("Looking up this spot...", lat, lng, "");
+
+          if (reverseLookupCache[cacheKey]) {
+            showClickInfo(reverseLookupCache[cacheKey], lat, lng, "");
+            return;
+          }
+
+          var now = Date.now();
+          if (now - lastReverseLookupTime < 1100) {
+            showClickInfo("Coordinates selected. Place lookup paused for a moment so we do not overload the free map service.", lat, lng, "Try clicking again in a second.");
+            return;
+          }
+
+          lastReverseLookupTime = now;
+
+          try {
+            var url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1";
+            var response = await fetch(url, {
+              headers: {
+                "Accept": "application/json"
+              }
+            });
+
+            if (!response.ok) throw new Error("Place lookup failed.");
+
+            var data = await response.json();
+            var placeName = getBestPlaceName(data);
+            reverseLookupCache[cacheKey] = placeName;
+            showClickInfo(placeName, lat, lng, "");
+          } catch (error) {
+            console.error(error);
+            showClickInfo("Coordinates selected. No nearby place name was found.", lat, lng, "");
+          }
+        }
+
+        function showClickInfo(placeName, lat, lng, note) {
+          clickInfoCard.innerHTML =
+            "<h2>Explore a spot</h2>" +
+            "<p><strong>Nearby place:</strong> " + escapeHtml(placeName || "Unknown spot") + "</p>" +
+            "<p><strong>Coordinates:</strong></p>" +
+            "<div class=\"coord-copy\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div>" +
+            (note ? "<p class=\"empty-message\">" + escapeHtml(note) + "</p>" : "");
+        }
+
+        function getBestPlaceName(data) {
+          if (!data) return "Unknown spot";
+          if (data.name) return data.name;
+
+          var address = data.address || {};
+          var parts = [];
+
+          if (address.park) parts.push(address.park);
+          if (address.leisure) parts.push(address.leisure);
+          if (address.amenity) parts.push(address.amenity);
+          if (address.tourism) parts.push(address.tourism);
+          if (address.road) parts.push(address.road);
+          if (address.neighbourhood) parts.push(address.neighbourhood);
+          if (address.city) parts.push(address.city);
+          if (address.town) parts.push(address.town);
+          if (address.village) parts.push(address.village);
+
+          if (parts.length > 0) return parts.slice(0, 3).join(", ");
+          if (data.display_name) return data.display_name.split(",").slice(0, 3).join(",").trim();
+          return "Unknown spot";
+        }
 
         async function loadCountyBoundary() {
           try {
@@ -381,8 +508,12 @@
             } else if (char === ',' && !insideQuotes) {
               currentRow.push(currentCell);
               currentCell = "";
-            } else if ((char === "\n" || char === "\r") && !insideQuotes) {
-              if (char === "\r" && nextChar === "\n") i++;
+            } else if ((char === "
+" || char === "
+") && !insideQuotes) {
+              if (char === "
+" && nextChar === "
+") i++;
               currentRow.push(currentCell);
               rows.push(currentRow);
               currentRow = [];
@@ -399,7 +530,7 @@
 
           var headerRow = rows.shift() || [];
           var headers = headerRow.map(function (header) {
-            return String(header || "").replace(/^\uFEFF/, "").trim();
+            return String(header || "").replace(/^﻿/, "").trim();
           });
 
           return rows.filter(function (row) {
