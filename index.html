@@ -325,7 +325,7 @@
             "</div>";
 
           fetch(
-            "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" +
+            "https://nominatim.openstreetmap.org/reverse?format=jsonv2&namedetails=1&extratags=1&lat=" +
             encodeURIComponent(lat) +
             "&lon=" +
             encodeURIComponent(lng) +
@@ -347,24 +347,89 @@
 
         function getBestPlaceName(data) {
           if (!data) return "Unknown location";
-          if (data.name) return data.name;
 
           var address = data.address || {};
-          var parts = [];
+          var namedetails = data.namedetails || {};
+          var candidates = [];
 
-          if (address.park) parts.push(address.park);
-          if (address.leisure) parts.push(address.leisure);
-          if (address.amenity) parts.push(address.amenity);
-          if (address.tourism) parts.push(address.tourism);
-          if (address.road) parts.push(address.road);
-          if (address.neighbourhood) parts.push(address.neighbourhood);
-          if (address.city) parts.push(address.city);
-          if (address.town) parts.push(address.town);
-          if (address.village) parts.push(address.village);
+          addCandidate(candidates, data.name, 100);
+          addCandidate(candidates, namedetails.name, 98);
+          addCandidate(candidates, namedetails["name:en"], 97);
 
-          if (parts.length > 0) return parts.slice(0, 3).join(", ");
+          addCandidate(candidates, address.park, 95);
+          addCandidate(candidates, address.school, 95);
+          addCandidate(candidates, address.university, 95);
+          addCandidate(candidates, address.college, 95);
+          addCandidate(candidates, address.library, 95);
+          addCandidate(candidates, address.playground, 95);
+          addCandidate(candidates, address.stadium, 95);
+          addCandidate(candidates, address.sports_centre, 95);
+          addCandidate(candidates, address.hospital, 95);
+          addCandidate(candidates, address.clinic, 95);
+          addCandidate(candidates, address.place_of_worship, 95);
+          addCandidate(candidates, address.cinema, 95);
+          addCandidate(candidates, address.theatre, 95);
+          addCandidate(candidates, address.museum, 95);
+          addCandidate(candidates, address.attraction, 94);
+          addCandidate(candidates, address.tourism, 93);
+          addCandidate(candidates, address.leisure, 92);
+          addCandidate(candidates, address.amenity, 91);
+          addCandidate(candidates, address.shop, 90);
+          addCandidate(candidates, address.building, 88);
+          addCandidate(candidates, address.office, 87);
+
+          addCandidate(candidates, firstDisplayPart(data.display_name), 80);
+
+          addCandidate(candidates, address.neighbourhood, 55);
+          addCandidate(candidates, address.suburb, 54);
+          addCandidate(candidates, address.hamlet, 53);
+          addCandidate(candidates, address.city, 52);
+          addCandidate(candidates, address.town, 52);
+          addCandidate(candidates, address.village, 52);
+          addCandidate(candidates, address.road, 25);
+          addCandidate(candidates, address.highway, 24);
+
+          candidates.sort(function (a, b) {
+            return b.score - a.score;
+          });
+
+          if (candidates.length > 0) {
+            return candidates[0].label;
+          }
+
           if (data.display_name) return data.display_name.split(",").slice(0, 3).join(",").trim();
           return "Unknown location";
+        }
+
+        function addCandidate(candidates, value, score) {
+          var label = cleanPlaceLabel(value);
+          if (!label) return;
+          if (isGenericRoadLabel(label)) return;
+          if (candidates.some(function (item) { return item.label.toLowerCase() === label.toLowerCase(); })) return;
+          candidates.push({ label: label, score: score });
+        }
+
+        function cleanPlaceLabel(value) {
+          var label = String(value || "").trim();
+          if (!label) return "";
+          label = label.replace(/_/g, " ");
+          label = label.replace(/\s+/g, " ").trim();
+          if (label.length < 2) return "";
+          return label;
+        }
+
+        function isGenericRoadLabel(label) {
+          var lower = String(label || "").trim().toLowerCase();
+          if (!lower) return true;
+          return [
+            "road", "street", "avenue", "drive", "lane", "court", "trail", "highway", "county road",
+            "residential", "service road", "footway", "path", "yes", "unknown"
+          ].indexOf(lower) !== -1;
+        }
+
+        function firstDisplayPart(displayName) {
+          if (!displayName) return "";
+          return String(displayName).split(",")[0].trim();
         }
 
         function renderCoordinateResult(placeName, lat, lng, lookupFailed) {
