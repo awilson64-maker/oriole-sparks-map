@@ -76,18 +76,17 @@
         setTimeout(function () { map.invalidateSize(); }, 250);
         loadCountyBoundary();
         loadSubmissions();
+
         async function showCoordinates(latlng) {
           var lat = latlng.lat.toFixed(6), lng = latlng.lng.toFixed(6);
           if (coordinateMarker) coordinateMarker.setLatLng(latlng); else coordinateMarker = L.circleMarker(latlng, { radius:8, color:"#ef6c00", weight:3, fillColor:"#f4b400", fillOpacity:.85, interactive:false }).addTo(map);
           coordinateCard.innerHTML = "<h2>Find coordinates</h2><p>Looking up nearby place...</p><div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div>";
           try {
-            var reverseResponse = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&namedetails=1&extratags=1&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1");
-            if (!reverseResponse.ok) throw new Error("Place lookup failed.");
-            var reverseData = await reverseResponse.json();
+            var reverseData = await reverseLookup(latlng.lat, latlng.lng);
             var placeName = getBestPlaceName(reverseData);
             if (isFallbackishPlaceName(placeName, reverseData)) {
-              var poiName = await findNearbyKnownPlace(latlng.lat, latlng.lng);
-              if (poiName) placeName = poiName;
+              var nearbyName = await findNearbyKnownPlace(latlng.lat, latlng.lng);
+              if (nearbyName) placeName = nearbyName;
             }
             if (isWeakAreaLabel(placeName, reverseData)) {
               placeName = getRoadFallback(reverseData) || placeName;
@@ -98,6 +97,24 @@
             renderCoordinateResult("Could not find a nearby place name", lat, lng, true);
           }
         }
+
+        async function reverseLookup(lat, lng) {
+          var url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&namedetails=1&extratags=1&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng) + "&zoom=18&addressdetails=1";
+          var response = await fetchWithTimeout(url, 4000);
+          if (!response.ok) throw new Error("Place lookup failed.");
+          return await response.json();
+        }
+
+        async function fetchWithTimeout(url, timeoutMs) {
+          var controller = new AbortController();
+          var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+          try {
+            return await fetch(url, { signal: controller.signal });
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+
         function getBestPlaceName(data) {
           if (!data) return "Unknown location";
           var address = data.address || {}, namedetails = data.namedetails || {}, candidates = [];
@@ -114,23 +131,28 @@
           if (candidates.length > 0) return candidates[0].label;
           return getRoadFallback(data) || firstDisplayPart(data.display_name) || "Unknown location";
         }
+
         function addCandidate(candidates, value, score) {
           var label = cleanPlaceLabel(value);
           if (!label || isGenericRoadLabel(label)) return;
           if (candidates.some(function (item) { return item.label.toLowerCase() === label.toLowerCase(); })) return;
           candidates.push({ label: label, score: score });
         }
+
         function cleanPlaceLabel(value) {
           var label = String(value || "").trim().replace(/_/g, " ").replace(/\s+/g, " ").trim();
           return label.length < 2 ? "" : label;
         }
+
         function isGenericRoadLabel(label) {
           var lower = String(label || "").trim().toLowerCase();
           if (!lower) return true;
           if (["road","street","avenue","drive","lane","court","trail","highway","county road","residential","service road","footway","path","yes","unknown"].indexOf(lower) !== -1) return true;
           return /\b(road|street|avenue|drive|lane|court|highway|hwy|trail|blvd|boulevard|way)\b/i.test(label);
         }
+
         function firstDisplayPart(displayName) { return displayName ? String(displayName).split(",")[0].trim() : ""; }
+
         function isFallbackishPlaceName(placeName, data) {
           if (!placeName || isGenericRoadLabel(placeName)) return true;
           if (isWeakAreaLabel(placeName, data)) return true;
@@ -140,6 +162,7 @@
           if (address.highway && lower === String(address.highway).toLowerCase()) return true;
           return false;
         }
+
         function isWeakAreaLabel(placeName, data) {
           var address = data && data.address ? data.address : {};
           var lower = String(placeName || "").trim().toLowerCase();
@@ -148,68 +171,56 @@
             return value && lower === String(value).trim().toLowerCase();
           });
         }
+
         function getRoadFallback(data) {
           var address = data && data.address ? data.address : {};
           return cleanPlaceLabel(address.road || address.highway || "");
         }
+
         async function findNearbyKnownPlace(lat, lng) {
-          var radiuses = [120, 250, 500];
-          for (var i = 0; i < radiuses.length; i++) {
-            var result = await searchNearbyPois(lat, lng, radiuses[i]);
-            if (result) return result;
-          }
-          return "";
-        }
-        async function searchNearbyPois(lat, lng, radius) {
-          var parts = [
-            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][amenity];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][amenity];',
-            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][leisure];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][leisure];',
-            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][tourism];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][tourism];',
-            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][shop];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][shop];',
-            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][building=school];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][building=school];',
-            'node(around:' + radius + ',' + lat + ',' + lng + ')[name][landuse=recreation_ground];', 'way(around:' + radius + ',' + lat + ',' + lng + ')[name][landuse=recreation_ground];'
+          var offsets = [
+            [0, 0],
+            [0.00035, 0], [-0.00035, 0], [0, 0.00045], [0, -0.00045],
+            [0.00025, 0.00035], [0.00025, -0.00035], [-0.00025, 0.00035], [-0.00025, -0.00035]
           ];
-          var query = '[out:json][timeout:12];(' + parts.join('') + ');out center tags 20;';
-          var response = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body: query });
-          if (!response.ok) return "";
-          var data = await response.json();
-          if (!data || !Array.isArray(data.elements) || !data.elements.length) return "";
-          var scored = data.elements.map(function (element) {
-            var tags = element.tags || {}, name = cleanPlaceLabel(tags.name);
-            if (!name || isGenericRoadLabel(name)) return null;
-            var elLat = typeof element.lat === 'number' ? element.lat : (element.center && element.center.lat);
-            var elLng = typeof element.lon === 'number' ? element.lon : (element.center && element.center.lon);
-            if (typeof elLat !== 'number' || typeof elLng !== 'number') return null;
-            return { name:name, score:scorePoi(tags) - distanceMeters(lat, lng, elLat, elLng) / 50 };
-          }).filter(Boolean);
-          scored.sort(function (a, b) { return b.score - a.score; });
-          return scored.length ? scored[0].name : "";
+          var candidates = [];
+          for (var i = 0; i < offsets.length; i++) {
+            try {
+              var probe = await reverseLookup(lat + offsets[i][0], lng + offsets[i][1]);
+              var label = getBestPlaceName(probe);
+              if (!label) continue;
+              if (isFallbackishPlaceName(label, probe)) continue;
+              candidates.push({
+                label: label,
+                score: scoreNearbyLabel(label, probe) - Math.abs(offsets[i][0]) * 100000 - Math.abs(offsets[i][1]) * 100000
+              });
+            } catch (error) {}
+          }
+          candidates.sort(function (a, b) { return b.score - a.score; });
+          return candidates.length ? candidates[0].label : "";
         }
-        function scorePoi(tags) {
-          var score = 0;
-          if (tags.amenity === 'school' || tags.building === 'school') score += 120;
-          if (tags.leisure === 'park' || tags.boundary === 'national_park') score += 115;
-          if (tags.leisure === 'playground') score += 110;
-          if (tags.amenity === 'library') score += 108;
-          if (tags.amenity === 'college' || tags.amenity === 'university') score += 107;
-          if (tags.tourism === 'museum' || tags.tourism === 'attraction') score += 105;
-          if (tags.leisure === 'sports_centre' || tags.leisure === 'stadium') score += 103;
-          if (tags.shop) score += 95;
-          if (tags.amenity) score += 92;
-          if (tags.leisure) score += 90;
-          if (tags.tourism) score += 88;
-          return score;
+
+        function scoreNearbyLabel(label, data) {
+          var address = data && data.address ? data.address : {};
+          var lower = String(label || "").toLowerCase();
+          if (address.school && lower === String(address.school).toLowerCase()) return 140;
+          if (address.park && lower === String(address.park).toLowerCase()) return 138;
+          if (address.library && lower === String(address.library).toLowerCase()) return 136;
+          if (address.playground && lower === String(address.playground).toLowerCase()) return 134;
+          if (address.university && lower === String(address.university).toLowerCase()) return 132;
+          if (address.college && lower === String(address.college).toLowerCase()) return 132;
+          if (address.hospital && lower === String(address.hospital).toLowerCase()) return 130;
+          if (address.museum && lower === String(address.museum).toLowerCase()) return 128;
+          if (address.stadium && lower === String(address.stadium).toLowerCase()) return 126;
+          return 100;
         }
-        function distanceMeters(lat1, lng1, lat2, lng2) {
-          var R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
-          var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-          return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-        }
+
         function renderCoordinateResult(placeName, lat, lng, lookupFailed) {
           coordinateCard.innerHTML = "<h2>Find coordinates</h2><p><strong>Nearby place:</strong> " + escapeHtml(placeName) + "</p><div class=\"coordinate-box\">Latitude: " + escapeHtml(lat) + "<br>Longitude: " + escapeHtml(lng) + "</div><br><button class=\"small-button\" id=\"copyCoordinatesButton\" type=\"button\">Copy coordinates</button>" + (lookupFailed ? "<p class=\"empty-message\">The coordinates still work. The place-name lookup just did not find a local label.</p>" : "<p class=\"empty-message\">Tip: paste the first number into Latitude and the second number into Longitude.</p>");
           var copyButton = document.getElementById("copyCoordinatesButton");
           if (copyButton) copyButton.addEventListener("click", function () { var text = lat + ", " + lng; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {}); copyButton.textContent = "Copied"; setTimeout(function () { copyButton.textContent = "Copy coordinates"; }, 1200); });
         }
+
         async function loadCountyBoundary() {
           try {
             var response = await fetch(COUNTY_GEOJSON_URL); if (!response.ok) throw new Error("County boundary request failed.");
@@ -217,19 +228,23 @@
             if (!countyFeature) throw new Error("Fond du Lac County boundary not found."); drawCountyBoundary(countyFeature);
           } catch (error) { console.error(error); }
         }
+
         function drawCountyBoundary(feature) {
           boundaryLayer.clearLayers(); maskLayer.clearLayers();
           var county = L.geoJSON(feature, { style:{ color:"#2e7d32", weight:4, opacity:1, fillColor:"#ffffff", fillOpacity:.05 } }).addTo(boundaryLayer);
           county.bindTooltip("Fond du Lac County", { sticky:true }); var bounds = county.getBounds(); map.fitBounds(bounds.pad(.08)); map.setMaxBounds(bounds.pad(.35)); drawOutsideCountyMask(feature);
         }
+
         function drawOutsideCountyMask(feature) {
           var worldOuterRing = [[90,-180],[90,180],[-90,180],[-90,-180]];
           var countyHoles = getCountyOuterRings(feature).map(function (ring) { return ring.map(function (coord) { return [coord[1], coord[0]]; }); });
           L.polygon([worldOuterRing].concat(countyHoles), { stroke:false, fillColor:"#f8f6ef", fillOpacity:.78, interactive:false }).addTo(maskLayer);
         }
+
         function getCountyOuterRings(feature) {
           var geometry = feature.geometry; if (!geometry) return []; if (geometry.type === "Polygon") return [geometry.coordinates[0]]; if (geometry.type === "MultiPolygon") return geometry.coordinates.map(function (polygon) { return polygon[0]; }); return [];
         }
+
         async function loadSubmissions() {
           try {
             setStatus("Loading approved submissions from Google Sheet..."); var response = await fetch(GOOGLE_SHEET_CSV_URL + "&cacheBust=" + Date.now()); if (!response.ok) throw new Error("Google Sheet CSV request failed.");
@@ -237,18 +252,22 @@
             addMarkers(submissions);
           } catch (error) { console.error(error); setStatus("Could not load Google Sheet data: " + error.message); }
         }
+
         function getCell(row, possibleHeaders) { for (var i = 0; i < possibleHeaders.length; i++) if (row[possibleHeaders[i]] !== undefined) return row[possibleHeaders[i]]; return ""; }
+
         function addMarkers(submissions) {
           markerLayer.clearLayers();
           var approved = submissions.filter(function (item) { var approvalValue = String(item.approved || "").trim().toLowerCase(); var isApproved = ["yes","y","true","1"].indexOf(approvalValue) !== -1; var lat = Number(String(item.latitude || "").trim()); var lng = Number(String(item.longitude || "").trim()); return isApproved && Number.isFinite(lat) && Number.isFinite(lng); });
           approved.forEach(function (item) { var lat = Number(String(item.latitude || "").trim()), lng = Number(String(item.longitude || "").trim()); var marker = L.marker([lat, lng]).addTo(markerLayer); marker.bindPopup("<strong>" + escapeHtml(item.placeName || "Favorite Place") + "</strong><br>Submitted by " + escapeHtml(item.firstName || "Student")); marker.on("click", function () { showDetails(item); }); });
           setStatus(approved.length + " approved submission" + (approved.length === 1 ? "" : "s") + " on the map. " + submissions.length + " total row" + (submissions.length === 1 ? "" : "s") + " loaded from the Sheet.");
         }
+
         function showDetails(item) {
           var safeFirstName = escapeHtml(item.firstName || "Student"), safePlaceName = escapeHtml(item.placeName || "Favorite Place"), safeDescription = escapeHtml(item.description || "No description provided.");
           var imageHtml = item.imageUrl ? "<img class=\"submission-image\" src=\"" + escapeAttribute(item.imageUrl) + "\" alt=\"Photo submitted for " + safePlaceName + "\" />" : "<p class=\"empty-message\">No photo has been added for this submission yet.</p>";
           detailsCard.innerHTML = "<h2>" + safePlaceName + "</h2><p><strong>Submitted by:</strong> " + safeFirstName + "</p><p>" + safeDescription + "</p>" + imageHtml;
         }
+
         function parseCsv(csvText) {
           var rows = [], currentRow = [], currentCell = "", insideQuotes = false;
           for (var i = 0; i < csvText.length; i++) { var char = csvText[i], nextChar = csvText[i + 1]; if (char === '"' && insideQuotes && nextChar === '"') { currentCell += '"'; i++; } else if (char === '"') insideQuotes = !insideQuotes; else if (char === ',' && !insideQuotes) { currentRow.push(currentCell); currentCell = ""; } else if ((char === "\n" || char === "\r") && !insideQuotes) { if (char === "\r" && nextChar === "\n") i++; currentRow.push(currentCell); rows.push(currentRow); currentRow = []; currentCell = ""; } else currentCell += char; }
@@ -256,6 +275,7 @@
           var headerRow = rows.shift() || []; var headers = headerRow.map(function (header) { return String(header || "").replace(/^\uFEFF/, "").trim(); });
           return rows.filter(function (row) { return row.some(function (cell) { return String(cell || "").trim() !== ""; }); }).map(function (row) { var record = {}; headers.forEach(function (header, index) { record[header] = row[index] ? String(row[index]).trim() : ""; }); return record; });
         }
+
         function escapeHtml(value) { return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
         function escapeAttribute(value) { return escapeHtml(value).replaceAll("`", "&#096;"); }
       } catch (error) { console.error(error); setStatus("Startup error: " + error.message); }
