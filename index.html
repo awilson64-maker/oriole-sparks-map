@@ -224,7 +224,10 @@
 
   <main>
     <section class="top-actions">
-      <a class="button" id="submitLink" href="#" target="_blank" rel="noopener">Submit a Favorite Place</a>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        <a class="button" id="submitLink" href="#" target="_blank" rel="noopener">Submit a Favorite Place</a>
+        <button class="button" id="printScavengerButton" type="button">Print Scavenger Hunt</button>
+      </div>
       <div class="status" id="status">Starting map...</div>
     </section>
 
@@ -255,6 +258,8 @@
       var statusEl = document.getElementById("status");
       var detailsCard = document.getElementById("detailsCard");
       var coordinateCard = document.getElementById("coordinateCard");
+      var printScavengerButton = document.getElementById("printScavengerButton");
+      var approvedSubmissions = [];
 
       function setStatus(message) {
         statusEl.textContent = message;
@@ -293,6 +298,11 @@
           showCoordinates(event.latlng);
         });
 
+        if (printScavengerButton) {
+          printScavengerButton.addEventListener("click", function () {
+            openScavengerHuntPrintView(approvedSubmissions);
+          });
+        }
 
         setTimeout(function () { map.invalidateSize(); }, 250);
 
@@ -485,7 +495,7 @@
 
         function addMarkers(submissions) {
           markerLayer.clearLayers();
-          var approved = submissions.filter(function (item) {
+          approvedSubmissions = submissions.filter(function (item) {
             var approvalValue = String(item.approved || "").trim().toLowerCase();
             var isApproved = ["yes", "y", "true", "1"].indexOf(approvalValue) !== -1;
             var lat = Number(String(item.latitude || "").trim());
@@ -493,7 +503,7 @@
             return isApproved && Number.isFinite(lat) && Number.isFinite(lng);
           });
 
-          approved.forEach(function (item) {
+          approvedSubmissions.forEach(function (item) {
             var lat = Number(String(item.latitude || "").trim());
             var lng = Number(String(item.longitude || "").trim());
             var marker = L.marker([lat, lng]).addTo(markerLayer);
@@ -501,15 +511,93 @@
             marker.on("click", function () { showDetails(item); });
           });
 
-          setStatus(approved.length + " approved submission" + (approved.length === 1 ? "" : "s") + " on the map. " + submissions.length + " total row" + (submissions.length === 1 ? "" : "s") + " loaded from the Sheet.");
+          setStatus(approvedSubmissions.length + " approved submission" + (approvedSubmissions.length === 1 ? "" : "s") + " on the map. " + submissions.length + " total row" + (submissions.length === 1 ? "" : "s") + " loaded from the Sheet.");
         }
 
         function showDetails(item) {
           var safeFirstName = escapeHtml(item.firstName || "Student");
           var safePlaceName = escapeHtml(item.placeName || "Favorite Place");
           var safeDescription = escapeHtml(item.description || "No description provided.");
-          var imageHtml = item.imageUrl ? "<img class=\"submission-image\" src=\"" + escapeAttribute(item.imageUrl) + "\" alt=\"Photo submitted for " + safePlaceName + "\" />" : "<p class=\"empty-message\">No photo has been added for this submission yet.</p>";
+          var normalizedImageUrl = normalizeImageUrl(item.imageUrl);
+          var imageHtml = normalizedImageUrl ? "<img class=\"submission-image\" src=\"" + escapeAttribute(normalizedImageUrl) + "\" alt=\"Photo submitted for " + safePlaceName + "\" onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend', '<p class=&quot;empty-message&quot;>The photo link could not be displayed. It may need to be shared publicly from Google Drive.</p>');\" />" : "<p class=\"empty-message\">No photo has been added for this submission yet.</p>";
           detailsCard.innerHTML = "<h2>" + safePlaceName + "</h2><p><strong>Submitted by:</strong> " + safeFirstName + "</p><p>" + safeDescription + "</p>" + imageHtml;
+        }
+
+        function normalizeImageUrl(url) {
+          var cleanUrl = String(url || "").trim();
+          if (!cleanUrl) return "";
+
+          var driveMatch = cleanUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/i);
+          if (driveMatch && driveMatch[1]) {
+            return "https://drive.google.com/uc?export=view&id=" + driveMatch[1];
+          }
+
+          var openMatch = cleanUrl.match(/[?&]id=([^&]+)/i);
+          if (cleanUrl.indexOf("drive.google.com") !== -1 && openMatch && openMatch[1]) {
+            return "https://drive.google.com/uc?export=view&id=" + openMatch[1];
+          }
+
+          return cleanUrl;
+        }
+
+        function openScavengerHuntPrintView(submissions) {
+          if (!submissions || submissions.length === 0) {
+            alert("There are no approved submissions to build a scavenger hunt yet.");
+            return;
+          }
+
+          var chosen = submissions.slice(0, 25);
+          var cellsHtml = chosen.map(function (item) {
+            var safeName = escapeHtml(item.placeName || "Favorite Place");
+            return "<div class=\"cell\"><div class=\"cell-name\">" + safeName + "</div><div class=\"cell-box\"></div></div>";
+          }).join("");
+
+          while (chosen.length < 25) {
+            cellsHtml += "<div class=\"cell\"><div class=\"cell-name\">Bonus place</div><div class=\"cell-box\"></div></div>";
+            chosen.push({});
+          }
+
+          var printWindow = window.open("", "_blank");
+          if (!printWindow) {
+            alert("Your browser blocked the print view. Please allow pop-ups for this site and try again.");
+            return;
+          }
+
+          var html = "<!DOCTYPE html><html><head><title>Oriole Sparks Scavenger Hunt</title>" +
+            "<style>" +
+            "body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:0;background:#f3f1eb;color:#222;}" +
+            ".page{max-width:850px;margin:0 auto;padding:24px;background:#f3f1eb;}" +
+            "h1{font-size:26px;margin:0 0 4px;text-align:center;}" +
+            ".subtitle{text-align:center;font-size:16px;margin:0 0 16px;}" +
+            ".intro{text-align:center;font-size:14px;line-height:1.4;margin:0 0 18px;}" +
+            ".grid{display:grid;grid-template-columns:repeat(5,1fr);border:2px solid #222;}" +
+            ".cell{min-height:120px;border-right:2px solid #222;border-bottom:2px solid #222;padding:8px;background:white;display:flex;flex-direction:column;justify-content:space-between;}" +
+            ".cell:nth-child(5n){border-right:none;}" +
+            ".cell:nth-last-child(-n+5){border-bottom:none;}" +
+            ".cell-name{font-size:13px;font-weight:bold;line-height:1.25;min-height:34px;}" +
+            ".cell-box{border:1px dashed #999;border-radius:8px;flex:1;margin-top:8px;background:linear-gradient(#d8ecf8,#f7fbfe);}" +
+            ".link-note{text-align:center;margin:14px 0 18px;font-size:13px;}" +
+            ".prompt{font-size:16px;margin:16px 0 10px;}" +
+            ".line{display:inline-block;border-bottom:1px solid #444;min-width:340px;height:20px;vertical-align:bottom;}" +
+            ".footer{text-align:center;font-size:12px;color:#555;margin-top:14px;}" +
+            "@media print{body{background:white;}.page{max-width:none;padding:12px;background:white;} button{display:none;}}" +
+            "</style></head><body>" +
+            "<div class=\"page\">" +
+            "<h1>Explore Fond du Lac County Scavenger Hunt</h1>" +
+            "<p class=\"subtitle\">Explore places around our county that youth in Oriole Sparks 4-H love.</p>" +
+            "<p class=\"intro\">Visit as many places as you can, check them off, and see what you discover.</p>" +
+            "<div class=\"grid\">" + cellsHtml + "</div>" +
+            "<p class=\"link-note\">Visit our website to see the full interactive map with all youth submissions.</p>" +
+            "<p class=\"prompt\">My favorite place was: <span class=\"line\"></span></p>" +
+            "<p class=\"prompt\">I discovered something new: <span class=\"line\"></span></p>" +
+            "<p class=\"footer\">Created by middle school students to help others discover local places in our community.</p>" +
+            "</div>" +
+            "<script>window.onload=function(){window.print();};<\/script>" +
+            "</body></html>";
+
+          printWindow.document.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
         }
 
         function parseCsv(csvText) {
