@@ -527,17 +527,30 @@
           var cleanUrl = String(url || "").trim();
           if (!cleanUrl) return "";
 
-          var driveMatch = cleanUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/i);
-          if (driveMatch && driveMatch[1]) {
-            return "https://drive.google.com/uc?export=view&id=" + driveMatch[1];
-          }
-
-          var openMatch = cleanUrl.match(/[?&]id=([^&]+)/i);
-          if (cleanUrl.indexOf("drive.google.com") !== -1 && openMatch && openMatch[1]) {
-            return "https://drive.google.com/uc?export=view&id=" + openMatch[1];
+          var fileId = extractGoogleDriveFileId(cleanUrl);
+          if (fileId) {
+            return "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w1600";
           }
 
           return cleanUrl;
+        }
+
+        function extractGoogleDriveFileId(url) {
+          if (!url || url.indexOf("drive.google.com") === -1) return "";
+
+          var patterns = [
+            /\/file\/d\/([^\/\?]+)/i,
+            /[\?&]id=([^&]+)/i,
+            /\/thumbnail\?id=([^&]+)/i,
+            /\/uc\?(?:export=[^&]+&)?id=([^&]+)/i
+          ];
+
+          for (var i = 0; i < patterns.length; i++) {
+            var match = url.match(patterns[i]);
+            if (match && match[1]) return match[1];
+          }
+
+          return "";
         }
 
         function openScavengerHuntPrintView(submissions) {
