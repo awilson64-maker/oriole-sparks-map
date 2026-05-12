@@ -549,11 +549,15 @@
           var chosen = submissions.slice(0, 25);
           var cellsHtml = chosen.map(function (item) {
             var safeName = escapeHtml(item.placeName || "Favorite Place");
-            return "<div class=\"cell\"><div class=\"cell-name\">" + safeName + "</div><div class=\"cell-box\"></div></div>";
+            var normalizedImageUrl = normalizeImageUrl(item.imageUrl);
+            var imageBlock = normalizedImageUrl
+              ? "<img class=\"cell-image\" src=\"" + escapeAttribute(normalizedImageUrl) + "\" alt=\"Photo for " + safeName + "\" onerror=\"this.style.display='none'; this.nextElementSibling.style.display='flex';\" /><div class=\"cell-image-fallback\" style=\"display:none;\">Photo unavailable</div>"
+              : "<div class=\"cell-image-fallback\">Photo unavailable</div>";
+            return "<div class=\"cell\"><div class=\"cell-name\">" + safeName + "</div><div class=\"cell-image-wrap\">" + imageBlock + "</div></div>";
           }).join("");
 
           while (chosen.length < 25) {
-            cellsHtml += "<div class=\"cell\"><div class=\"cell-name\">Bonus place</div><div class=\"cell-box\"></div></div>";
+            cellsHtml += "<div class=\"cell\"><div class=\"cell-name\">Bonus place</div><div class=\"cell-image-wrap\"><div class=\"cell-image-fallback\">Add your own photo</div></div></div>";
             chosen.push({});
           }
 
@@ -571,11 +575,13 @@
             ".subtitle{text-align:center;font-size:16px;margin:0 0 16px;}" +
             ".intro{text-align:center;font-size:14px;line-height:1.4;margin:0 0 18px;}" +
             ".grid{display:grid;grid-template-columns:repeat(5,1fr);border:2px solid #222;}" +
-            ".cell{min-height:120px;border-right:2px solid #222;border-bottom:2px solid #222;padding:8px;background:white;display:flex;flex-direction:column;justify-content:space-between;}" +
+            ".cell{min-height:140px;border-right:2px solid #222;border-bottom:2px solid #222;padding:8px;background:white;display:flex;flex-direction:column;}" +
             ".cell:nth-child(5n){border-right:none;}" +
             ".cell:nth-last-child(-n+5){border-bottom:none;}" +
-            ".cell-name{font-size:13px;font-weight:bold;line-height:1.25;min-height:34px;}" +
-            ".cell-box{border:1px dashed #999;border-radius:8px;flex:1;margin-top:8px;background:linear-gradient(#d8ecf8,#f7fbfe);}" +
+            ".cell-name{font-size:13px;font-weight:bold;line-height:1.25;min-height:34px;margin-bottom:8px;}" +
+            ".cell-image-wrap{border:1px dashed #999;border-radius:8px;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(#d8ecf8,#f7fbfe);min-height:76px;}" +
+            ".cell-image{width:100%;height:100%;object-fit:cover;display:block;}" +
+            ".cell-image-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:#666;padding:8px;}" +
             ".link-note{text-align:center;margin:14px 0 18px;font-size:13px;}" +
             ".prompt{font-size:16px;margin:16px 0 10px;}" +
             ".line{display:inline-block;border-bottom:1px solid #444;min-width:340px;height:20px;vertical-align:bottom;}" +
