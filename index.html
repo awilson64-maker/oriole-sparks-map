@@ -561,7 +561,7 @@
             return;
           }
 
-          var chosen = submissions.slice(0, 25);
+          var chosen = shuffleArray(submissions.slice()).slice(0, 25);
           var cellsHtml = chosen.map(function (item) {
             var safeName = escapeHtml(item.placeName || "Favorite Place");
             var normalizedImageUrl = normalizeImageUrl(item.imageUrl);
@@ -639,6 +639,16 @@
           printWindow.document.close();
         }
 
+        function shuffleArray(items) {
+  for (var i = items.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var temp = items[i];
+    items[i] = items[j];
+    items[j] = temp;
+  }
+  return items;
+}
+        
         function parseCsv(csvText) {
           var rows = [];
           var currentRow = [];
